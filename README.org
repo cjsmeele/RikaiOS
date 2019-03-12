@@ -1,0 +1,4 @@
+#+TITLE:  EOS-OS
+#+AUTHOR: Chris Smeele
+
+(this is a work in progress)
