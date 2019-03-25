@@ -1,0 +1,15 @@
+#error:       action=fatal
+boot:        disk
+cpu:         ips=30000000
+ata0:        enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
+ata0-master: type=disk, path="./disk.img"
+clock:       sync=both, time0=utc
+#clock:       sync=none, time0=utc
+vga:         extension=vbe, update_freq=60
+com1:        enabled=true, mode=file, dev=serial-out.bin
+com2:        enabled=false
+com3:        enabled=false
+com4:        enabled=false
+pci: enabled=1, chipset=i440fx, slot1=pcivga
+display_library: x, options=gui_debug
+magic_break: enabled=1

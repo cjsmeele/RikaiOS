@@ -2,3 +2,11 @@
 #+AUTHOR: Chris Smeele
 
 (this is a work in progress)
+
+** Run
+
+: make disk
+: make run
+
+Any special paths / parameters should be settable and overridable in a
+Makefile.local file in de corresponding directory.

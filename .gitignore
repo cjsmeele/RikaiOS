@@ -1,0 +1,8 @@
+# Files that are globally ignored.
+
+*~*
+*\#*
+*.swp
+Makefile.local
+
+/disk.img
