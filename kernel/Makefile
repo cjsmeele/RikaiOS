@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-AS      := yasm
+AS      := nasm
 CXX     := clang++
 LD      := ld.lld
 OBJCOPY := llvm-objcopy
@@ -75,7 +75,7 @@ all: $(KERNEL_BIN)
 bootloader: bootsect.bin stage2.bin
 
 $(KERNEL_BIN): $(KERNEL_ELF)
-	$(OBJCOPY) -Obinary $< $@
+	$(OBJCOPY) -O binary $< $@
 
 $(KERNEL_ELF): $(CXX_O) src/start.o
 	$(LD) $(LDFLAGS) -o $@ $^

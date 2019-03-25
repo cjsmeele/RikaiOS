@@ -3,6 +3,15 @@
 
 (this is a work in progress)
 
+** Dependencies
+
+- nasm
+- lld
+- llvm
+- clang
+- qemu
+- parted
+
 ** Run
 
 : make disk

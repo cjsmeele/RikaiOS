@@ -46,3 +46,4 @@ disk: build
 clean:
 	$(MAKE) -C boot   clean
 	$(MAKE) -C kernel clean
+	rm -f $(DISK_IMG)

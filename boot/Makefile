@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-AS      := yasm
+AS      := nasm
 CXX     := clang++
 LD      := ld.lld
 OBJCOPY := llvm-objcopy
@@ -80,7 +80,7 @@ bootsect.bin: bootsect.asm
 	$(AS) -o $@ $<
 
 stage2.bin: stage2.elf
-	$(OBJCOPY) -Obinary $< $@
+	$(OBJCOPY) -O binary $< $@
 
 STAGE2_CXX_O := $(STAGE2_CXX_SOURCES:%.cc=%.o)
 
