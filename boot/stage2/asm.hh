@@ -15,13 +15,15 @@
 #pragma once
 
 #include "types.hh"
+#include "../include/boot/bootinfo.hh"
 
 // C++ functions to wrap BIOS calls.
 
+struct boot_info_t;
+
 // Misc. functions.
-void asm_msleep(u32 ms);
 void asm_hang();
-void asm_boot();
+void asm_boot(boot_info_t &boot_info);
 
 // Console functions.
 void asm_console_print_char(char c);

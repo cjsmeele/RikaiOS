@@ -12,26 +12,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
-#include "boot/bootinfo.hh"
+// Information that we pass on to the loaded kernel.
+//
+// This header is separate from the stage2 source directory so that it can be
+// easily included from kernel code.
 
-using u16 = unsigned short;
-using u32 = unsigned int;
+struct boot_info_t {
 
-// poor-man's printf debugging
-#define DEBUG_EAX(x)  asm volatile ("xchg %%bx, %%bx" \
-                                  :: "a" (u32(x)), "b" (0xfeedbeef))
+    using u64    = unsigned long long;
+    using size_t = unsigned int;
 
-extern "C"
-void kmain(const boot_info_t &boot_info) {
+    /// Indicates the location and size of a usable memory region.
+    struct memory_region_t {
+        u64 start = 0;
+        u64 size  = 0;
+    };
 
-    for (int y = 0; y < 25; ++y) {
-        for (int x = 0; x < 80; ++x) {
-            ((volatile u16*)0xb8000)[y*80+x]
-                = (x+y)&1 ? 0xf101 : 0x1f02;
-        }
-    }
-
-    DEBUG_EAX(boot_info.memory_region_count);
-    DEBUG_EAX(boot_info.memory_regions[0].size);
-}
+    memory_region_t *memory_regions = nullptr;
+    size_t memory_region_count      = 0;
+};

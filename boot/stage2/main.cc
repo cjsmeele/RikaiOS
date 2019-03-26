@@ -17,6 +17,7 @@
 #include "console.hh"
 #include "memory.hh"
 #include "disk.hh"
+#include "../include/boot/bootinfo.hh"
 
 extern "C"
 int stage2_main(u8  disk_no
@@ -62,8 +63,15 @@ int stage2_main(u8  disk_no
         asm_hang();
     }
 
-    // Jump to the kernel.
-    asm_boot();
+    // Create a structure for information that we pass to the kernel.
+    // (We gathered this information in the bootloader because the kernel
+    //  won't be able to query the BIOS)
+    static boot_info_t boot_info;
+    boot_info.memory_regions      = map.regions;
+    boot_info.memory_region_count = map.region_count;
+
+    // Jump to the kernel with the given boot information.
+    asm_boot(boot_info);
 
     // (unreachable)
     return 0;

@@ -12,28 +12,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-QEMU := qemu-system-i386
+QEMU     := qemu-system-i386
+QEMU_KVM := qemu-system-x86_64 -enable-kvm
+BOCHS    := bochs
 
 DISK_IMG    := disk.img
-DISK_SIZE_M ?= 100
+DISK_SIZE_M := 100
 
-.PHONY: build rebuild run disk clean
+.PHONY: build rebuild boot kernel disk run qemu qemu-kvm bochs clean
 
 -include Makefile.local
 
-build:
-	$(MAKE) -C boot   all
-	$(MAKE) -C kernel all
+build: boot kernel
 
 rebuild:
 	$(MAKE) -BC boot   all
 	$(MAKE) -BC kernel all
 
-run: $(DISK_IMG)
-	$(QEMU) -name osdev                        \
-	        -m 512                             \
-	        -drive format=raw,file=$(DISK_IMG) \
-	        -serial stdio
+boot:
+	$(MAKE) -C boot   all
+
+kernel:
+	$(MAKE) -C kernel all
+
+run: qemu
+
+qemu: $(DISK_IMG)
+	$(QEMU) \
+	    -name osdev                        \
+	    -m 512                             \
+	    -drive format=raw,file=$(DISK_IMG) \
+	    -serial stdio
+
+qemu-kvm: $(DISK_IMG)
+	$(QEMU_KVM) \
+	    -name osdev                        \
+	    -m 512                             \
+	    -drive format=raw,file=$(DISK_IMG) \
+	    -serial stdio
+
+bochs: $(DISK_IMG)
+	$(BOCHS)
 
 disk: build
 	./mkdisk.sh $(DISK_IMG) $(DISK_SIZE_M)

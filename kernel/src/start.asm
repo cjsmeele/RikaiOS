@@ -25,6 +25,7 @@ kernel_stack_top:
 ;; This sets up a stack and calls main.
 kernel_start:
     mov esp, kernel_stack_top
+    push edx ;; boot information struct pointer.
     call kmain
     cli
     hlt

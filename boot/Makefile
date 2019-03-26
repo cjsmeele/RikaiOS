@@ -24,6 +24,14 @@ STAGE2_CXX_SOURCES := \
 	stage2/disk.cc    \
 	stage2/asm.cc
 
+STAGE2_HEADERS :=            \
+	stage2/types.hh          \
+	stage2/asm.hh            \
+	stage2/console.hh        \
+	stage2/disk.hh           \
+	stage2/memory.hh         \
+	include/boot/bootinfo.hh
+
 STAGE2_ASFLAGS := -f elf32
 
 # Lots of options for the C++ compiler, mostly to tell it that we are running
@@ -87,7 +95,7 @@ STAGE2_CXX_O := $(STAGE2_CXX_SOURCES:%.cc=%.o)
 stage2.elf: $(STAGE2_CXX_O) stage2/start.o
 	$(LD) $(STAGE2_LDFLAGS) -o $@ $^
 
-$(STAGE2_CXX_O): stage2/%.o: stage2/%.cc
+$(STAGE2_CXX_O): stage2/%.o: stage2/%.cc $(STAGE2_HEADERS)
 	$(CXX) $(STAGE2_CXXFLAGS) -c -o $@ $<
 
 stage2/start.o: stage2/start.asm

@@ -42,7 +42,7 @@ CXXFLAGS :=                  \
 	-mno-sse                 \
 	-std=c++17               \
 	-pipe                    \
-	-Istage2                 \
+	-I../boot/include        \
 	-Wall                    \
 	-Wextra                  \
 	-Wpedantic               \

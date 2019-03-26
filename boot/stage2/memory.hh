@@ -15,21 +15,16 @@
 #pragma once
 
 #include "types.hh"
+#include "../include/boot/bootinfo.hh"
 
 // Functions for generating and querying the system's memory map.
-
-/// Indicates the location and size of a usable memory region.
-struct memory_region_t {
-    u64 start = 0;
-    u64 size  = 0;
-};
 
 /// Indicates the location and sizes of all usable memory regions.
 struct memory_map_t {
     constexpr static size_t max_memory_regions = 32;
 
     u32 region_count = 0;
-    memory_region_t regions[max_memory_regions];
+    boot_info_t::memory_region_t regions[max_memory_regions];
 };
 
 void make_memory_map(memory_map_t &map);

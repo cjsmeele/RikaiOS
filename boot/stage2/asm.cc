@@ -13,30 +13,24 @@
  * limitations under the License.
  */
 #include "asm.hh"
+#include "../include/boot/bootinfo.hh"
 
 // C++ wrappers for code that we can only write in assembler,
 // such as BIOS function calls.
 
 // Time & cpu control {{{
 
-void asm_msleep(u32 ms) {
-    ms *= 1000;
-    asm ("int $0x15"
-      :: "a" (0x8600)
-       , "c" (ms >> 16)
-       , "d" (ms & 0xffff)
-       : "cc");
-}
-
 void asm_hang() {
     asm volatile ("cli \
                 \n hlt");
 }
 
-void asm_boot() {
+void asm_boot(boot_info_t &boot_info) {
+
     // Switch to protected mode and jump to the kernel at 1M.
 
-    // This assumes asm_mem_enable_high_memory() has been called already.
+    // This assumes asm_mem_enable_high_memory() has been called already
+    // and that kernel code has been loaded at 0x00100000.
 
     asm ("cli                                \
        \n                                    \
@@ -57,8 +51,9 @@ void asm_boot() {
        \n // and jump to kernel entrypoint   \
        \n ljmpl %0, $0x00100000"
 
-       :: "i" (1*8) // code segment descriptor number.
-        , "i" (2*8) // data segment descriptor number.
+       :: "i" (1*8)        // code segment descriptor number.
+        , "i" (2*8)        // data segment descriptor number.
+        , "d" (&boot_info) // A pointer to boot information is passed in EDX.
         : "eax", "memory", "cc");
 
     //((void(*)())(u32*)0x00100000)();
@@ -147,8 +142,7 @@ bool asm_disk_read(void *dest
        \n jmp .read_disk_done    \
        \n .read_disk_success:    \
        \n mov $1, %%eax          \
-       \n .read_disk_done:       \
-       \n xchg %%bx, %%bx     "
+       \n .read_disk_done:"
 
         : "+a" (success)
         : "d"  (disk_no)
