@@ -12,23 +12,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "common.hh"
-#include "boot/bootinfo.hh"
+#pragma once
 
-// poor-man's printf debugging
-#define DEBUG_EAX(x)  asm volatile ("xchg %%bx, %%bx" \
-                                 :: "a" (u32(x)), "b" (0xfeedbeef))
+// Type aliases.
 
-extern "C"
-void kmain(const boot_info_t &boot_info) {
+using u64 = unsigned long long;
+using u32 = unsigned int;
+using u16 = unsigned short;
+using u8  = unsigned char;
 
-    for (int y = 0; y < 25; ++y) {
-        for (int x = 0; x < 80; ++x) {
-            ((volatile u16*)0xb8000)[y*80+x]
-                = (x+y)&1 ? 0xf101 : 0x1f02;
-        }
-    }
+using s64 = signed long long;
+using s32 = signed int;
+using s16 = signed short;
+using s8  = signed char;
 
-    DEBUG_EAX(boot_info.memory_region_count);
-    DEBUG_EAX(boot_info.memory_regions[0].size);
-}
+using size_t = u32;

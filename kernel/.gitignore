@@ -1,3 +1,6 @@
 /kernel.bin
 /kernel.elf
 /kernel.map
+/deps.make
+/o/
+/d/

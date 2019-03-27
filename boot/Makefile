@@ -12,6 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Fancy output options.
+# (use make <target> VERBOSE=1 to disable)
+ifdef VERBOSE
+    Q :=
+    E := @true 
+    F := @true 
+else
+    Q := @
+    E := @echo 
+    F := @echo " . boot/"
+    MAKEFLAGS += --no-print-directory
+endif
+
 AS      := nasm
 CXX     := clang++
 LD      := ld.lld
@@ -72,46 +85,46 @@ STAGE2_CXXFLAGS :=           \
 	-Wfatal-errors           \
 	-fdiagnostics-color=auto
 
-STAGE2_LDFLAGS := -Tstage2.ld
-
-.PHONY: all clean bootloader installer
-
--include Makefile.local
-
-all: bootloader installer
-
-# Bootloader {{{
-
-bootloader: bootsect.bin stage2.bin
-
-bootsect.bin: bootsect.asm
-	$(AS) -o $@ $<
-
-stage2.bin: stage2.elf
-	$(OBJCOPY) -O binary $< $@
+STAGE2_LDFLAGS :=   \
+	-Tstage2.ld     \
+	-Map=stage2.map
 
 STAGE2_CXX_O := $(STAGE2_CXX_SOURCES:%.cc=%.o)
 
+.PHONY: all bootloader stage1 stage2 installer clean
+
+-include Makefile.local
+
+all:        bootloader installer
+bootloader: stage1 stage2
+stage1:     bootsect.bin
+stage2:     stage2.bin
+installer:  utils/loader-install
+clean:
+	$(Q)rm -f utils/loader-install
+	$(Q)rm -f bootsect.bin stage2.bin stage2.elf stage2.map
+	$(Q)rm -f $(STAGE2_CXX_O) stage2/start.o
+
+bootsect.bin: bootsect.asm
+	$(F)$@
+	$(Q)$(AS) -o $@ $<
+
+stage2.bin: stage2.elf
+	$(F)$@
+	$(Q)$(OBJCOPY) -O binary $< $@
+
 stage2.elf: $(STAGE2_CXX_O) stage2/start.o
-	$(LD) $(STAGE2_LDFLAGS) -o $@ $^
+	$(F)$@
+	$(Q)$(LD) $(STAGE2_LDFLAGS) -o $@ $^
 
 $(STAGE2_CXX_O): stage2/%.o: stage2/%.cc $(STAGE2_HEADERS)
-	$(CXX) $(STAGE2_CXXFLAGS) -c -o $@ $<
+	$(F)$@
+	$(Q)$(CXX) $(STAGE2_CXXFLAGS) -c -o $@ $<
 
 stage2/start.o: stage2/start.asm
-	$(AS) $(STAGE2_ASFLAGS) -o $@ $<
-
-# }}}
-# Installer {{{
-
-installer: utils/loader-install
+	$(F)$@
+	$(Q)$(AS) $(STAGE2_ASFLAGS) -o $@ $<
 
 utils/loader-install: utils/loader-install.cc
-	$(CXX) -Wall -Wextra -pedantic -std=c++17 -o $@ $<
-
-# }}}
-
-clean:
-	rm -f utils/loader-install
-	rm -f bootsect.bin stage2.bin stage2.elf
-	rm -f $(STAGE2_CXX_O) stage2/start.o
+	$(F)$@
+	$(Q)$(CXX) -Wall -Wextra -pedantic -std=c++17 -o $@ $<

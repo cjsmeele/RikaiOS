@@ -12,6 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Fancy output options.
+# (use make <target> VERBOSE=1 to disable)
+ifdef VERBOSE
+    Q :=
+    E := @true 
+    F := @true 
+else
+    Q := @
+    E := @echo 
+    F := @echo " . kernel/"
+    MAKEFLAGS += --no-print-directory
+endif
+
 AS      := nasm
 CXX     := clang++
 LD      := ld.lld
@@ -60,32 +73,52 @@ CXXFLAGS :=                  \
 	-Wfatal-errors           \
 	-fdiagnostics-color=auto
 
-LDFLAGS := -Tkernel.ld
+LDFLAGS :=          \
+	-Tkernel.ld     \
+	-Map=kernel.map
 
-CXX_O      := $(CXX_SOURCES:%.cc=%.o)
+DEPFILE    := deps.make
+CXX_D      := $(CXX_SOURCES:src/%.cc=d/%.d)
+CXX_O      := $(CXX_SOURCES:src/%.cc=o/%.o)
 KERNEL_ELF := kernel.elf
 KERNEL_BIN := kernel.bin
 
-.PHONY: all elf bin clean
+.PHONY: all elf bin dep clean
 
 -include Makefile.local
 
-all: $(KERNEL_BIN)
-
-bootloader: bootsect.bin stage2.bin
+all: bin
+elf: $(KERNEL_ELF)
+bin: $(KERNEL_BIN)
+dep: $(DEPFILE)
+clean:
+	$(Q)rm -f $(KERNEL_BIN) $(KERNEL_ELF) kernel.map
+	$(Q)rm -rf d o
 
 $(KERNEL_BIN): $(KERNEL_ELF)
-	$(OBJCOPY) -O binary $< $@
+	$(F)$@
+	$(Q)mkdir -p $(@D) && $(OBJCOPY) -O binary $< $@
 
-$(KERNEL_ELF): $(CXX_O) src/start.o
-	$(LD) $(LDFLAGS) -o $@ $^
+$(KERNEL_ELF): o/start.o $(CXX_O)
+	$(F)$@
+	$(Q)mkdir -p $(@D) && $(LD) $(LDFLAGS) -o $@ $^
 
-$(CXX_O): src/%.o: src/%.cc
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
+$(CXX_O): o/%.o: src/%.cc
+	$(F)$@
+	$(Q)mkdir -p $(@D) && $(CXX) $(CXXFLAGS) -c -o $@ $<
 
-src/start.o: src/start.asm
-	$(AS) $(ASFLAGS) -o $@ $<
+o/start.o: src/start.asm
+	$(F)$@
+	$(Q)mkdir -p $(@D) && $(AS) $(ASFLAGS) -o $@ $<
 
-clean:
-	rm -f $(KERNEL_BIN) $(KERNEL_ELF)
-	rm -f $(CXX_O) src/start.o
+$(CXX_D): d/%.d: src/%.cc
+	$(Q)mkdir -p $(@D) && $(CXX) $(CXXFLAGS) -MM -MT $(<:src/%.cc=o/%.o) -o $@ $<
+
+$(DEPFILE): $(CXX_D)
+	$(F)$@
+	$(Q)mkdir -p $(@D) && cat $^ > $@
+
+# Include generated dependencies if we're compiling or linking.
+ifeq (,$(filter $(MAKECMDGOALS),dep clean))
+-include $(DEPFILE)
+endif
