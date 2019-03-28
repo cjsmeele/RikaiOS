@@ -29,9 +29,10 @@ AS      := nasm
 CXX     := clang++
 LD      := ld.lld
 OBJCOPY := llvm-objcopy
+DOXYGEN := doxygen
 
-CXX_SOURCES :=  \
-	src/main.cc
+ASM_SOURCES := $(shell find src -name '*.asm')
+CXX_SOURCES := $(shell find src -name '*.cc')
 
 ASFLAGS := -f elf32
 
@@ -80,10 +81,11 @@ LDFLAGS :=          \
 DEPFILE    := deps.make
 CXX_D      := $(CXX_SOURCES:src/%.cc=d/%.d)
 CXX_O      := $(CXX_SOURCES:src/%.cc=o/%.o)
+ASM_O      := $(ASM_SOURCES:src/%.asm=o/%.o)
 KERNEL_ELF := kernel.elf
 KERNEL_BIN := kernel.bin
 
-.PHONY: all elf bin dep clean
+.PHONY: all elf bin dep doc clean
 
 -include Makefile.local
 
@@ -91,6 +93,9 @@ all: bin
 elf: $(KERNEL_ELF)
 bin: $(KERNEL_BIN)
 dep: $(DEPFILE)
+doc: Doxyfile
+	$(F)doc/
+	$(Q)mkdir -p doc && $(DOXYGEN) Doxyfile
 clean:
 	$(Q)rm -f $(KERNEL_BIN) $(KERNEL_ELF) kernel.map
 	$(Q)rm -rf d o
@@ -99,7 +104,7 @@ $(KERNEL_BIN): $(KERNEL_ELF)
 	$(F)$@
 	$(Q)mkdir -p $(@D) && $(OBJCOPY) -O binary $< $@
 
-$(KERNEL_ELF): o/start.o $(CXX_O)
+$(KERNEL_ELF): $(ASM_O) $(CXX_O)
 	$(F)$@
 	$(Q)mkdir -p $(@D) && $(LD) $(LDFLAGS) -o $@ $^
 
@@ -107,7 +112,7 @@ $(CXX_O): o/%.o: src/%.cc
 	$(F)$@
 	$(Q)mkdir -p $(@D) && $(CXX) $(CXXFLAGS) -c -o $@ $<
 
-o/start.o: src/start.asm
+$(ASM_O): o/%.o: src/%.asm
 	$(F)$@
 	$(Q)mkdir -p $(@D) && $(AS) $(ASFLAGS) -o $@ $<
 
@@ -119,6 +124,6 @@ $(DEPFILE): $(CXX_D)
 	$(Q)mkdir -p $(@D) && cat $^ > $@
 
 # Include generated dependencies if we're compiling or linking.
-ifeq (,$(filter $(MAKECMDGOALS),dep clean))
+ifeq (,$(filter $(MAKECMDGOALS),dep doc clean))
 -include $(DEPFILE)
 endif

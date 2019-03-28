@@ -41,7 +41,7 @@ on multicore systems.
 This builds the kernel and bootloader and creates a boot disk that is run with
 QEMU:
 
-: make disk run
+: make disk && make run
 
 *** Bochs
 
@@ -49,7 +49,7 @@ This does the same, but runs the OS in the Bochs emulator instead.
 This usually makes for a better debugging experience, but is significantly less
 performant than running in QEMU.
 
-: make disk bochs
+: make disk && make bochs
 
 *** Forcing a rebuild
 
