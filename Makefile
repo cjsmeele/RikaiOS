@@ -17,9 +17,11 @@
 ifdef VERBOSE
     Q :=
     E := @true 
+    F := @true 
 else
     Q := @
     E := @echo 
+    F := @echo " . "
     MAKEFLAGS += --no-print-directory
 endif
 
@@ -67,6 +69,7 @@ bochs: $(DISK_IMG)
 	$(BOCHS) -q
 
 disk: build
+	$(F)$(DISK_IMG)
 	$(Q)./mkdisk.sh $(DISK_IMG) $(DISK_SIZE_M)
 	$(Q)./boot/utils/loader-install \
 	        $(DISK_IMG)             \

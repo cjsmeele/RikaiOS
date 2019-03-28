@@ -28,6 +28,10 @@ SECTIONS {
 
     .rodata ALIGN (0x10) : {
         *(.rodata*)
+
+        CTORS_START = .;
+        *(SORT(.ctor*))
+        CTORS_END = .;
     }
 
     .data ALIGN (0x10) : {

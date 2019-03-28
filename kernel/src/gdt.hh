@@ -13,25 +13,10 @@
  * limitations under the License.
  */
 #include "common.hh"
-#include "boot/bootinfo.hh"
-#include "gdt.hh"
 
-// poor-man's printf debugging
-#define DEBUG_EAX(x)  asm volatile ("xchg %%bx, %%bx" \
-                                 :: "a" (u32(x)), "b" (0xfeedbeef))
 
-extern "C"
-void kmain(const boot_info_t &boot_info) {
-
-    Gdt::init();
-
-    for (int y = 0; y < 25; ++y) {
-        for (int x = 0; x < 80; ++x) {
-            ((volatile u16*)0xb8000)[y*80+x]
-                = (x+y)&1 ? 0xf101 : 0x1f02;
-        }
-    }
-
-    // DEBUG_EAX(boot_info.memory_region_count);
-    // DEBUG_EAX(boot_info.memory_regions[0].size);
+/// Global Descriptor Table - handles memory segmentation.
+namespace Gdt {
+    /// Initialises the Global Descriptor Table and loads it.
+    void init();
 }

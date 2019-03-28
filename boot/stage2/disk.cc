@@ -36,7 +36,7 @@ bool disk_read(u8    *dest
         ;i < block_count
         ;i     += buffer_block_count
         ,block += buffer_block_count
-        ,dest  += buffer_block_count) {
+        ,dest  += buffer_block_count*512) {
 
         u32 count; // How many blocks to read in this iteration.
 

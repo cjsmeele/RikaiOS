@@ -17,6 +17,7 @@
 global kernel_start
 extern kmain
 
+align 16
 ;; Create an 8K stack.
 kernel_stack:     times (8*1024) db 0
 kernel_stack_top:
@@ -25,7 +26,31 @@ kernel_stack_top:
 ;; This sets up a stack and calls main.
 kernel_start:
     mov esp, kernel_stack_top
-    push edx ;; boot information struct pointer.
+    push edx ; Boot information struct pointer, passed to kmain.
+    call run_constructors
     call kmain
     cli
     hlt
+
+;; Some C++ datastructures must be initialised manually at startup.
+;; These initialization steps are recorded as function addresses in the .ctors
+;; section.
+;; Here we make sure to call all global constructors before calling
+;; the C++ kmain function.
+
+extern CTORS_START
+extern CTORS_END
+
+run_constructors:
+    mov ebx, dword CTORS_START
+
+    ;; Iterate over and call all global ctors.
+.loop:
+    mov eax, dword CTORS_END
+    cmp ebx, eax
+    jge .end
+    call [ebx]
+    add ebx, 4
+    jmp .loop
+.end:
+    ret
