@@ -29,8 +29,8 @@ kernel_start:
     hlt
 
 align 16
-;; Create a 16K stack.
-kernel_stack:     times (16*1024) db 0
+;; Create a 32K stack.
+kernel_stack:     times (32*1024) db 0
 kernel_stack_top:
 
 ;; Some C++ datastructures must be initialised manually at startup.

@@ -16,6 +16,8 @@
 #include "boot/bootinfo.hh"
 #include "memory/gdt.hh"
 
+#include <os-std/fmt.hh>
+
 extern "C"
 void kmain(const boot_info_t &boot_info) {
 
@@ -24,8 +26,35 @@ void kmain(const boot_info_t &boot_info) {
     for (int y = 0; y < 25; ++y) {
         for (int x = 0; x < 80; ++x) {
             ((volatile u16*)0xb8000)[y*80+x]
-                = (x+y)&1 ? 0x8f00 | ' '
-                          : 0x7f00 | ' ';
+                = 0x7020;
+                // = x&1 ? 0x8700 | 0xdf
+                //       : 0x7800 | 0xdf;
+        }
+    }
+
+    String<80*25> str = "formatted text:\n\n";
+
+    {
+        String<80> tmp;
+
+        fmt(tmp, "{8   } {8   } {8 } {8 }\n" , "hex", "oct", "dec", "bin"); str += tmp;
+        fmt(tmp, "{8~  } {8~  } {8~} {8~}\n" , '-', '-', '-', '-');         str += tmp;
+        fmt(tmp, "{08#x} {08#o} {8 } {8 }\n" , 42, 42, 42, Bitset<8>(42));  str += tmp;
+
+        auto ar = Array{1,22,333,4444,999999};
+
+        fmt(tmp, "\nThis is an array:       {   }\n", ar); str += tmp;
+        fmt(tmp,   "This is the same array: {#7x}\n", ar); str += tmp;
+        fmt(tmp,   "This is the same array: {07 }\n", ar); str += tmp;
+        fmt(tmp,   "This is the same array: { 7S}\n", ar); str += tmp;
+    }
+
+    int x = 0, y = 0;
+    for (char c : str) {
+        if (c == '\n') {
+            x = 0, y++;
+        } else {
+            ((volatile u16*)0xb8000)[y*80+(x++)] = 0x0f00 | c;
         }
     }
 

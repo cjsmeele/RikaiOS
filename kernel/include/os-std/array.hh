@@ -15,6 +15,7 @@
 #pragma once
 
 #include <os-std/memory.hh>
+#include <os-std/fmt.hh>
 
 namespace ostd {
 
@@ -63,5 +64,28 @@ namespace ostd {
             static_assert(N2 <= N, "tried to initialize an array with too many elements");
             mem_copy(data_, data, N2);
         }
+
+        template<typename... Ts>
+        constexpr Array(const Ts&... args)
+            : data_{args...} { }
     };
+
+    template<typename T, typename... Ts>
+    Array(const T &a, const Ts&... args) -> Array<T,1+sizeof...(args)>;
+}
+
+namespace ostd::Format {
+    /// Formatter for arrays.
+    template<typename F, typename T, size_t N>
+    void format(F print, Flags f, const Array<T,N> &ar) {
+        print("[ ");
+        bool first = true;
+        for (const auto &el : ar) {
+            if (first) first = false;
+            else       print(", ");
+
+            format(print, f, el);
+        }
+        print(" ]");
+    }
 }

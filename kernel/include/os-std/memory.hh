@@ -19,22 +19,42 @@
 namespace ostd {
 
     template<typename T>
-    T *mem_set(T *s, const T &c, size_t n) {
+    constexpr T *mem_set(T *s, const T &c, size_t n) {
         for (size_t i = 0; i < n; ++i)
             s[i] = c;
         return s;
     }
 
     template<typename T>
-    T *mem_copy(T *dst, const T *src, size_t n) {
+    constexpr T *mem_copy(T *dst, const T *src, size_t n) {
         for (size_t i = 0; i < n; ++i)
             dst[i] = src[i];
         return dst;
     }
 
-    constexpr size_t strlen(const char *s) {
+    constexpr size_t str_length(const char *s) {
         size_t i = 0;
         for (; s[i]; ++i);
         return i;
     }
+
+    /**
+     * Copies at most dst_size bytes or until a NUL terminator was found.
+     *
+     * A terminating NUL byte is always written as long as dst_size > 0.
+     * dst_size must include space for a NUL byte.
+     */
+    constexpr void str_copy(char *__restrict dst, const char *__restrict src, size_t dst_size) {
+        if (dst_size == 0)
+            return;
+
+        size_t i = 0;
+        for (; i < dst_size-1 && src[i]; ++i)
+            dst[i] = src[i];
+
+        dst[i] = 0;
+    }
 }
+
+extern "C" void *memcpy(void *__restrict dst, const void *__restrict src, size_t sz);
+extern "C" void *memset(void *dst, char c, size_t sz);

@@ -22,7 +22,7 @@ void panic() {
     DEBUG1(0xdeaddead);
 
     // Print "PANIC" in the upper right corner of the screen.
-    constexpr String str = " PANIC! ";
+    constexpr StringView str = " PANIC! ";
 
     for (size_t i = 0; i < str.length(); ++i)
         ((volatile u16*)0xb8000)[80-str.length()+i]

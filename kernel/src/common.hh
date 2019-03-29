@@ -16,8 +16,8 @@
 
 // Here we include headers that are needed by pretty much all kernel code.
 
-// Notify included headers that they are being included in kernel code.
-// (they may add additional functionality when included in userspace code)
+/// Notify included headers that they are being included in kernel code.
+/// (they may add additional functionality when included in userspace code)
 #define KERNELSPACE
 
 // Headers shared between kernel/userspace.

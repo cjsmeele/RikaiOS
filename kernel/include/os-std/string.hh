@@ -25,6 +25,31 @@
 
 namespace ostd {
 
+    /// \name Functions for classifying and manipulating characters.
+    ///@{
+    template<typename T>
+    constexpr bool is_oneof(const T v)         { return false; }
+    template<typename T, typename... Us>
+    constexpr bool is_oneof(const T v
+                           ,const Us&... rest) { return ((v == rest) || ...); }
+
+
+    template<typename N>
+    constexpr bool inrange(N mi, N ma, N x) { return x >= mi && x <= ma; }
+
+    constexpr char tolower (char c) { return inrange('A', 'Z', c) ? c - 'A' + 'a' : c;    }
+    constexpr char toupper (char c) { return inrange('a', 'z', c) ? c - 'a' + 'A' : c;    }
+    constexpr bool isspace (char c) { return is_oneof(c, ' ', '\t', '\n', '\r');          }
+    constexpr bool islower (char c) { return inrange('a', 'z', c);                        }
+    constexpr bool isupper (char c) { return inrange('A', 'Z', c);                        }
+    constexpr bool isalpha (char c) { return islower(c) || isupper(c);                    }
+    constexpr bool isnum   (char c) { return inrange('0', '9', c);                        }
+    constexpr bool ishexnum(char c) { return isnum(c)   || inrange('a', 'f', tolower(c)); }
+    constexpr bool isalnum (char c) { return isalpha(c) || isnum(c);                      }
+    ///@}
+
+    struct StringView;
+
     /**
      * Fixed-size string class.
      *
@@ -73,6 +98,10 @@ namespace ostd {
         constexpr       char *end()         { return data_.data()+length_; }
         ///@}
 
+        constexpr void clear() {
+            *this = "";
+        }
+
         constexpr String &operator=(const char *o) {
             for (length_ = 0
                 ;o[length_] && length_ < Nchars
@@ -85,6 +114,30 @@ namespace ostd {
 
             return *this;
         }
+
+        constexpr String &operator+=(const char *o) {
+            for (size_t i = 0
+                ;o[i] && length_ < Nchars
+                ;++length_, ++i) {
+
+                data_[length_] = o[i];
+            }
+            // Add NUL terminator.
+            data_[length_] = 0;
+
+            return *this;
+        }
+
+        constexpr String &operator+=(char c) {
+            if (length_+1 < Nchars) {
+                data_[length_++] = c;
+                data_[length_]   = 0;
+            }
+
+            return *this;
+        }
+
+        constexpr operator StringView();
 
         constexpr String() { length_ = 0; }
 
@@ -103,59 +156,32 @@ namespace ostd {
     template<size_t N>
     String(const char (&data)[N]) -> String<N-1>;
 
-    namespace {
-        template<typename C>
-        struct StringViewBase {
-            C *data_;
-            size_t length_;
-
-            constexpr size_t length() const { return length_; }
-
-            constexpr StringViewBase &operator=(C *o) {
-                if (o) {
-                    data_ = o;
-                    for (length_ = 0; o[length_]; ++length_);
-                } else {
-                    data_   = nullptr;
-                    length_ = 0;
-                }
-                return *this;
-            }
-
-            constexpr StringViewBase(C *s)
-                : data_(s)
-                , length_(strlen(s)) {
-            }
-
-            template<size_t N>
-            constexpr StringViewBase(C (&s)[N])
-                : data_(s)
-                , length_(N-1) { }
-        };
-    }
-
-    template<typename C>
-    struct StringView;
-
     /**
      * Provides a read-only view into a string.
      *
      * This is meant to be a cheap-to-copy method of access to both string
      * literals (const char arrays) and String types.
      */
-    template<typename C>
-    struct StringView<const C> : public StringViewBase<const C> {
-        using StringViewBase<const C>::data_;
-        using StringViewBase<const C>::length_;
+    struct StringView {
+
+        const char *data_;
+        size_t length_;
+
+        constexpr size_t length() const { return length_; }
+
+        constexpr StringView &operator=(const char *o) {
+            data_ = o;
+            if (o) for (length_ = 0; o[length_]; ++length_);
+            else   length_ = 0;
+
+            return *this;
+        }
 
         /// Get a pointer to the underlying data.
         constexpr const char *data() const { return data_; }
 
-        /// \name Accessors.
-        ///@{
-        constexpr const C &operator[](size_t i) const { return data_[i]; }
-        constexpr       C  operator[](size_t i)       { return data_[i]; }
-        ///@}
+        /// Accessor.
+        constexpr char operator[](size_t i)       { return data_[i]; }
 
         /** \name Iterator-ish functions.
          *
@@ -166,12 +192,61 @@ namespace ostd {
         constexpr const char *end()   const { return data_+length_; }
         ///@}
 
-        constexpr StringView(const C *s) : StringViewBase<const C>(s) { }
+        constexpr operator const char*() const { return data_; }
+
+        // constexpr operator bool() const { return data_; }
+
+        constexpr StringView(const char *s)
+            : data_(s)
+            , length_(str_length(s)) { }
+        constexpr StringView(const char *s, size_t length)
+            :   data_(s)
+            , length_(length) { }
 
         template<size_t N>
-        constexpr StringView(const C (&s)[N]) : StringViewBase<const C>(s) { }
+        constexpr StringView(const char (&s)[N])
+            :   data_(s)
+            , length_(N-1) { }
+
+        template<size_t N>
+        constexpr StringView(const String<N> &s)
+                :   data_(s.data())
+                , length_(s.length()) { }
     };
 
-    template<typename C, size_t N>
-    StringView(const C (&s)[N]) -> StringView<const C>;
+    template<size_t N>
+    constexpr String<N>::operator StringView() {
+        return StringView(data_.data(), length_);
+    }
+
+    template<size_t N>
+    constexpr String<N> &operator+=(String<N> &x, StringView y) {
+        return x += y.data();
+    }
+
+    namespace Format {
+        template<typename F>
+        constexpr void format(F print, Flags &f, StringView s) {
+            if (!s) s = "<null>";
+
+            int pad = f.width ? f.width - (int)s.length() : 0;
+
+            if (!f.align_left && pad > 0)
+                format_padding(print, ' ', pad);
+
+            print(s);
+
+            if (f.align_left && pad > 0)
+                format_padding(print, ' ', pad);
+        }
+    }
+
+    /// Format a string, write results into a String.
+    template<size_t StrLen, typename... As>
+    void fmt(String<StrLen> &dest, const char *s, const As&... args) {
+        String<StrLen> tmp;
+        fmt(tmp.data(), StrLen+1, s, args...);
+        tmp.length_ = str_length(tmp.data());
+        dest = tmp;
+    }
 }

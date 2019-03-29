@@ -12,8 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <os-std/types.hh>
 
-// These functions are required to be present by the compiler / builtins.
+/** \file
+ * Functions that are required to be present by the compiler / builtins.
+ */
 
 /// Handler for pure virtual function calls.
 extern "C" void __cxa_pure_virtual();
@@ -25,3 +28,18 @@ extern "C" void __cxa_pure_virtual() {
 /// This isn't necessary since the kernel never exits.
 extern "C" void __cxa_atexit(void (*)(void*), void*, void*);
 extern "C" void __cxa_atexit(void (*)(void*), void*, void*) { }
+
+/// \name These are required by (clang) builtins
+///@{
+extern "C" void *memcpy(void *__restrict dst, const void *__restrict src, size_t n) {
+    for (size_t i = 0; i < n; ++i)
+        ((u8*)dst)[i] = ((u8*)src)[i];
+    return dst;
+}
+
+extern "C" void *memset(void *s, char c, size_t n) {
+    for (size_t i = 0; i < n; ++i)
+        ((char*)s)[i] = c;
+    return s;
+}
+///@}

@@ -17,6 +17,8 @@
 #include <os-std/types.hh>
 #include <os-std/math.hh>
 #include <os-std/array.hh>
+#include <os-std/string.hh>
+#include <os-std/fmt.hh>
 
 namespace ostd {
 
@@ -60,7 +62,26 @@ namespace ostd {
         Bitset &operator ^=(u32 x)       { data[0] ^= x; return *this;         }
         ///@}
 
-        Bitset()      : data{ } { }
-        Bitset(u32 x) : data{x} { }
+        Bitset()      : data{   } { }
+        Bitset(u32 x) : data{{x}} { }
     };
+
+    Bitset(u32 x) -> Bitset<32>;
+    Bitset(u16 x) -> Bitset<16>;
+    Bitset(u8  x) -> Bitset< 8>;
+}
+
+namespace ostd::Format {
+    /// Formatter for bitsets.
+    template<typename F, size_t N>
+    void format(F print, Flags f, const Bitset<N> &bitset) {
+        String<N+2> buffer;
+        if (f.prefix_radix)
+            buffer += "0b";
+        for (size_t i = 0; i < N; ++i)
+            buffer += bitset[N-i-1] ? '1' : '0';
+
+        // Handle padding.
+        format(print, f, buffer);
+    }
 }
