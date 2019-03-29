@@ -28,11 +28,13 @@ endif
 QEMU     := qemu-system-i386
 QEMU_KVM := qemu-system-x86_64 -enable-kvm
 BOCHS    := bochs
+GDB      := gdb
+GDBRC    := ./gdbrc
 
 DISK_IMG    := disk.img
 DISK_SIZE_M := 100
 
-.PHONY: build rebuild boot kernel disk run qemu qemu-kvm bochs clean
+.PHONY: build rebuild boot kernel disk run debug qemu qemu-kvm bochs clean
 
 -include Makefile.local
 
@@ -63,6 +65,15 @@ qemu-kvm: $(DISK_IMG)
 	    -m 512                             \
 	    -drive format=raw,file=$(DISK_IMG) \
 	    -serial stdio
+
+debug: $(DISK_IMG)
+	$(QEMU) \
+	    -name osdev                        \
+	    -m 512                             \
+	    -drive format=raw,file=$(DISK_IMG) \
+	    -serial file:serial-out.bin        \
+	    -S -gdb tcp::1133 &
+	$(GDB) -x $(GDBRC)
 
 bochs: $(DISK_IMG)
 	$(Q)rm -f $(DISK_IMG).lock

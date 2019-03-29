@@ -1,0 +1,8 @@
+file kernel/kernel.elf
+target remote :1133
+set disassembly-flavor intel
+layout split
+focus cmd
+#break *0x100000
+break kmain
+continue

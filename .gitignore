@@ -10,3 +10,4 @@ Makefile.local
 /disk.img
 /disk.img.lock
 /bx_enh_dbg.ini
+/serial-out.bin
