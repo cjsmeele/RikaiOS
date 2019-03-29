@@ -25,19 +25,19 @@ else
     MAKEFLAGS += --no-print-directory
 endif
 
-AS      := nasm
-CXX     := clang++
-LD      := ld.lld
-OBJCOPY := llvm-objcopy
+AS      = nasm
+CXX     = clang++
+LD      = ld.lld
+OBJCOPY = llvm-objcopy
 
-STAGE2_CXX_SOURCES := \
+STAGE2_CXX_SOURCES =  \
 	stage2/main.cc    \
 	stage2/memory.cc  \
 	stage2/console.cc \
 	stage2/disk.cc    \
 	stage2/asm.cc
 
-STAGE2_HEADERS :=            \
+STAGE2_HEADERS =             \
 	stage2/types.hh          \
 	stage2/asm.hh            \
 	stage2/console.hh        \
@@ -45,12 +45,12 @@ STAGE2_HEADERS :=            \
 	stage2/memory.hh         \
 	include/boot/bootinfo.hh
 
-STAGE2_ASFLAGS := -f elf32
+STAGE2_ASFLAGS = -f elf32
 
 # Lots of options for the C++ compiler, mostly to tell it that we are running
 # "bare-metal", and to enable most warnings.
 
-STAGE2_CXXFLAGS :=           \
+STAGE2_CXXFLAGS =            \
 	--target=i686-elf        \
 	-m16                     \
 	-Os                      \
@@ -85,11 +85,11 @@ STAGE2_CXXFLAGS :=           \
 	-Wfatal-errors           \
 	-fdiagnostics-color=auto
 
-STAGE2_LDFLAGS :=   \
+STAGE2_LDFLAGS =    \
 	-Tstage2.ld     \
 	-Map=stage2.map
 
-STAGE2_CXX_O := $(STAGE2_CXX_SOURCES:%.cc=%.o)
+STAGE2_CXX_O = $(STAGE2_CXX_SOURCES:%.cc=%.o)
 
 .PHONY: all bootloader stage1 stage2 installer clean
 

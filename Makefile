@@ -25,16 +25,16 @@ else
     MAKEFLAGS += --no-print-directory
 endif
 
-QEMU     := qemu-system-i386
-QEMU_KVM := qemu-system-x86_64 -enable-kvm
-BOCHS    := bochs
-GDB      := gdb
+QEMU     = qemu-system-i386
+QEMU_KVM = qemu-system-x86_64 -enable-kvm
+BOCHS    = bochs
+GDB      = gdb
 
-BOCHSRC  := ./bochsrc
-GDBRC    := ./gdbrc
+BOCHSRC  = ./bochsrc
+GDBRC    = ./gdbrc
 
-DISK_IMG    := ./disk.img
-DISK_SIZE_M := 100
+DISK_IMG    = ./disk.img
+DISK_SIZE_M = 100
 
 .PHONY: build rebuild boot kernel disk run debug qemu qemu-kvm bochs clean
 

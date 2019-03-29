@@ -25,19 +25,19 @@ else
     MAKEFLAGS += --no-print-directory
 endif
 
-AS      := nasm
-CXX     := clang++
-LD      := ld.lld
-OBJCOPY := llvm-objcopy
-DOXYGEN := doxygen
+AS      = nasm
+CXX     = clang++
+LD      = ld.lld
+OBJCOPY = llvm-objcopy
+DOXYGEN = doxygen
 
-ASM_SOURCES := $(shell find src -name '*.asm')
-CXX_SOURCES := $(shell find src -name '*.cc')
+ASM_SOURCES = $(shell find src -name '*.asm')
+CXX_SOURCES = $(shell find src -name '*.cc')
 
-ASFLAGS := -f elf32
+ASFLAGS = -f elf32
 
 # Search path for C++ headers.
-CXX_INCLUDE :=               \
+CXX_INCLUDE =                \
 	-isystem ./include       \
 	-isystem ./src           \
 	-I       ../boot/include
@@ -45,7 +45,7 @@ CXX_INCLUDE :=               \
 # Lots of options for the C++ compiler, mostly to tell it that we are running
 # "bare-metal", and to enable most warnings.
 
-CXXFLAGS :=                         \
+CXXFLAGS =                          \
 	--target=i686-elf               \
 	-m32                            \
 	-Os                             \
@@ -80,16 +80,24 @@ CXXFLAGS :=                         \
 	-Wfatal-errors                  \
 	-fdiagnostics-color=auto
 
-LDFLAGS :=          \
-	-Tkernel.ld     \
-	-Map=kernel.map
+# The clang builtins lib contains runtime support functions that are needed for
+# a.o. some division operations, floating point ops, and advanced bit
+# operations (popcnt, etc.).
+LD_BUILTIN_DIR  = $(wildcard /usr/lib/clang/*/lib/linux)
+LD_BUILTIN_NAME = clang_rt.builtins-i386
 
-DEPFILE    := deps.make
-CXX_D      := $(CXX_SOURCES:src/%.cc=d/%.d)
-CXX_O      := $(CXX_SOURCES:src/%.cc=o/%.o)
-ASM_O      := $(ASM_SOURCES:src/%.asm=o/%.o)
-KERNEL_ELF := kernel.elf
-KERNEL_BIN := kernel.bin
+LDFLAGS =                              \
+	-Tkernel.ld                        \
+	-Map=kernel.map                    \
+	$(addprefix -L, $(LD_BUILTIN_DIR)) \
+	-l$(LD_BUILTIN_NAME)
+
+DEPFILE    = deps.make
+CXX_D      = $(CXX_SOURCES:src/%.cc=d/%.d)
+CXX_O      = $(CXX_SOURCES:src/%.cc=o/%.o)
+ASM_O      = $(ASM_SOURCES:src/%.asm=o/%.o)
+KERNEL_ELF = kernel.elf
+KERNEL_BIN = kernel.bin
 
 .PHONY: all elf bin dep doc clean
 

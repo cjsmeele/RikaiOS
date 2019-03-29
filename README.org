@@ -66,8 +66,16 @@ See [[./gdbrc]] for startup options (you may override this file path in a ~Makef
 
 : make disk && make debug
 
-See [[./bochsrc]] for configuration options (you may override this file path in a ~Makefile.local~).
-
 **** Bochs
 
+See [[./bochsrc]] for configuration options (you may override this file path in a ~Makefile.local~).
+
 : make disk && make bochs
+
+*** Troubleshooting / common errors
+
+: ld.lld: error: unable to find library -lclang_rt.builtins-i386
+
+1. Locate your clang's builtins library (e.g. ~locate clang_rt.builtins~)
+2. Create file ~kernel/Makefile.local~, with contents:
+   ~LD_BUILTIN_DIR += /the/directory/contaning/the/clang/lib~
