@@ -29,9 +29,11 @@ QEMU     := qemu-system-i386
 QEMU_KVM := qemu-system-x86_64 -enable-kvm
 BOCHS    := bochs
 GDB      := gdb
+
+BOCHSRC  := ./bochsrc
 GDBRC    := ./gdbrc
 
-DISK_IMG    := disk.img
+DISK_IMG    := ./disk.img
 DISK_SIZE_M := 100
 
 .PHONY: build rebuild boot kernel disk run debug qemu qemu-kvm bochs clean
@@ -73,11 +75,11 @@ debug: $(DISK_IMG)
 	    -drive format=raw,file=$(DISK_IMG) \
 	    -serial file:serial-out.bin        \
 	    -S -gdb tcp::1133 &
-	$(GDB) -x $(GDBRC)
+	$(GDB) -q -x $(GDBRC)
 
 bochs: $(DISK_IMG)
 	$(Q)rm -f $(DISK_IMG).lock
-	$(BOCHS) -q
+	$(BOCHS) -q -f $(BOCHSRC)
 
 disk: build
 	$(F)$(DISK_IMG)

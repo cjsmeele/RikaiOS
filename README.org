@@ -43,16 +43,31 @@ QEMU:
 
 : make disk && make run
 
-*** Bochs
+To enable acceleration using kvm, run:
 
-This does the same, but runs the OS in the Bochs emulator instead.
-This usually makes for a better debugging experience, but is significantly less
-performant than running in QEMU.
-
-: make disk && make bochs
+: make disk && make qemu-kvm
 
 *** Forcing a rebuild
 
 This forcibly rebuilds all components, ignoring existing output files.
 
 : make rebuild
+
+*** Debugging
+
+You can debug the kernel with either QEMU or Bochs:
+
+- QEMU/gdb: Provides a familiar debugger interface with good C++ integration.
+- Bochs: Provides a better low-level overview with good x86 error reporting, runs slower.
+
+**** QEMU/gdb
+
+See [[./gdbrc]] for startup options (you may override this file path in a ~Makefile.local~).
+
+: make disk && make debug
+
+See [[./bochsrc]] for configuration options (you may override this file path in a ~Makefile.local~).
+
+**** Bochs
+
+: make disk && make bochs

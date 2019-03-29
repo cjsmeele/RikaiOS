@@ -11,3 +11,4 @@ Makefile.local
 /disk.img.lock
 /bx_enh_dbg.ini
 /serial-out.bin
+/.gdb_history
