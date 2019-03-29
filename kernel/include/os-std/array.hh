@@ -72,6 +72,9 @@ namespace ostd {
 
     template<typename T, typename... Ts>
     Array(const T &a, const Ts&... args) -> Array<T,1+sizeof...(args)>;
+
+    static_assert(sizeof(Array<u16,7>) == 14
+                 ,"array is guaranteed to be of the same size as an equivalent C-array");
 }
 
 namespace ostd::Format {

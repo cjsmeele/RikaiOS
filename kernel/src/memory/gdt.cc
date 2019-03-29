@@ -55,19 +55,19 @@ namespace Gdt {
      * We only change the segment registers (cs, ds, etc.) to point to either
      * kernel-mode or user-mode segments, for the sake of security.
      */
-    u64 table[6] { 0x00'00'00'00'0000'0000ULL    // "null" descriptor, required.
-                 , 0x00'cf'9a'00'0000'ffffULL    // Kernel code segment (cs).
-                 , 0x00'cf'92'00'0000'ffffULL    // Kernel data segment (ds, ss, es, fs, gs).
-                 , 0x00'cf'fa'00'0000'ffffULL    // User code segment (cs).
-                 , 0x00'cf'f2'00'0000'ffffULL    // User data segment (ds, ss, es, fs, gs).
-                 , 0x00'50'89'00'0000'0067ULL }; // Task State Segment (TSS).
-    //               └┤ ││ └┤ └┤ └──┤ ╰──┴─ limit bits 0-15
-    //                │ ││  │  │    ╰────── base bits  0-15
-    //                │ ││  │  ╰─────────── base bits 16-23
-    //                │ ││  ╰────────────── access bits
-    //                │ │╰───────────────── limit bits 16-19
-    //                │ ╰────────────────── flags
-    //                ╰──────────────────── base bits 24─31
+    Array table { 0x00'00'00'00'0000'0000ULL    // "null" descriptor, required.
+                , 0x00'cf'9a'00'0000'ffffULL    // Kernel code segment (cs).
+                , 0x00'cf'92'00'0000'ffffULL    // Kernel data segment (ds, ss, es, fs, gs).
+                , 0x00'cf'fa'00'0000'ffffULL    // User code segment (cs).
+                , 0x00'cf'f2'00'0000'ffffULL    // User data segment (ds, ss, es, fs, gs).
+                , 0x00'50'89'00'0000'0067ULL }; // Task State Segment (TSS).
+    //              └┤ ││ └┤ └┤ └──┤ ╰──┴─ limit bits 0-15
+    //               │ ││  │  │    ╰────── base bits  0-15
+    //               │ ││  │  ╰─────────── base bits 16-23
+    //               │ ││  ╰────────────── access bits
+    //               │ │╰───────────────── limit bits 16-19
+    //               │ ╰────────────────── flags
+    //               ╰──────────────────── base bits 24─31
 
     /// Indices into the GDT.
     enum {
@@ -80,7 +80,7 @@ namespace Gdt {
     };
 
     /// A 48-bit datastructure that indicates the location and size of the table.
-    const u64 gdt_ptr = (u64)table << 16 | (sizeof(table) - 1);
+    const u64 gdt_ptr = (u64)table.data() << 16 | (sizeof(table) - 1);
 
     void init() {
         tss.iomap_offset = 0x68; // Indicates we do not have an iomap.
