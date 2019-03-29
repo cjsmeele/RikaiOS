@@ -36,42 +36,48 @@ CXX_SOURCES := $(shell find src -name '*.cc')
 
 ASFLAGS := -f elf32
 
+# Search path for C++ headers.
+CXX_INCLUDE :=               \
+	-isystem ./include       \
+	-isystem ./src           \
+	-I       ../boot/include
+
 # Lots of options for the C++ compiler, mostly to tell it that we are running
 # "bare-metal", and to enable most warnings.
 
-CXXFLAGS :=                  \
-	--target=i686-elf        \
-	-m32                     \
-	-Os                      \
-	-g3                      \
-	-ggdb                    \
-	-nostdlib                \
-	-ffreestanding           \
-	-fno-stack-protector     \
-	-fno-exceptions          \
-	-fno-rtti                \
-	-fno-threadsafe-statics  \
-	-fwrapv                  \
-	-mno-red-zone            \
-	-mno-sse                 \
-	-std=c++17               \
-	-pipe                    \
-	-I../boot/include        \
-	-Wall                    \
-	-Wextra                  \
-	-Wpedantic               \
-	-Werror=return-type      \
-	-Werror=unused-result    \
-	-Werror=return-std-move  \
-	-Wshadow                 \
-	-Wpointer-arith          \
-	-Wcast-align             \
-	-Wwrite-strings          \
-	-Wmissing-declarations   \
-	-Wredundant-decls        \
-	-Winline                 \
-	-Wuninitialized          \
-	-Wfatal-errors           \
+CXXFLAGS :=                         \
+	--target=i686-elf               \
+	-m32                            \
+	-Os                             \
+	-g3                             \
+	-ggdb                           \
+	-nostdlib                       \
+	-ffreestanding                  \
+	-fno-stack-protector            \
+	-fno-exceptions                 \
+	-fno-rtti                       \
+	-fno-threadsafe-statics         \
+	-fwrapv                         \
+	-mno-red-zone                   \
+	-mno-sse                        \
+	-std=c++17                      \
+	-pipe                           \
+	$(CXX_INCLUDE)                  \
+	-Wall                           \
+	-Wextra                         \
+	-Wpedantic                      \
+	-Werror=return-type             \
+	-Werror=unused-result           \
+	-Werror=return-std-move         \
+	-Wshadow                        \
+	-Wpointer-arith                 \
+	-Wcast-align                    \
+	-Wwrite-strings                 \
+	-Wmissing-declarations          \
+	-Wredundant-decls               \
+	-Winline                        \
+	-Wuninitialized                 \
+	-Wfatal-errors                  \
 	-fdiagnostics-color=auto
 
 LDFLAGS :=          \

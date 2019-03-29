@@ -12,41 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-OUTPUT_FORMAT(elf32-i386)
-ENTRY(kernel_start)
+#pragma once
 
-SECTIONS {
-    . = 0x00100000;
-
-    .start ALIGN (0x10) : {
-        src/start.o (*)
-    }
-
-    .text ALIGN (0x10) : {
-        *(.text*)
-    }
-
-    .rodata ALIGN (0x10) : {
-        *(.rodata*)
-
-        . = ALIGN(0x10);
-        CTORS_START = .;
-        *(SORT(.ctor*))
-        CTORS_END = .;
-    }
-
-    .data ALIGN (0x10) : {
-        *(.data)
-    }
-
-    .bss ALIGN (0x10) : {
-        KERNEL_BSS_START = .;
-        *(COMMON)
-        *(.bss)
-        KERNEL_BSS_END = .;
-    }
-
-    /DISCARD/ : {
-        *(.comment)
-    }
-}
+/// Reports an error condition and halts the machine (does not return).
+void panic();

@@ -14,6 +14,23 @@
  */
 #pragma once
 
-// Headers that are needed by pretty much all kernel code.
+// Here we include headers that are needed by pretty much all kernel code.
 
-#include "types.hh"
+// Notify included headers that they are being included in kernel code.
+// (they may add additional functionality when included in userspace code)
+#define KERNELSPACE
+
+// Headers shared between kernel/userspace.
+#include <os-std/types.hh>
+#include <os-std/memory.hh>
+#include <os-std/math.hh>
+#include <os-std/bitset.hh>
+#include <os-std/string.hh>
+
+// Internal headers.
+#include "common/debug.hh"
+#include "common/panic.hh"
+
+// The ostd namespace is used throughout the kernel - this does not harm other
+// libraries and userspace code.
+using namespace ostd;

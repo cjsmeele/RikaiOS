@@ -1,0 +1,12 @@
+OS-STD
+======
+
+This directory contains the headers of the operating system standard library,
+used both by the operating system kernel and by userland.
+
+Somewhat similar to the C++ standard library, the code in this library is not
+meant to be easily understandable, but must provide an easy-to-grasp interface
+for programmers exposed to the basics of the C++ standard library (e.g.
+interactions with std::string, std::vector and cmath).
+
+All os-std types and functions are contained in the `ostd' namespace.

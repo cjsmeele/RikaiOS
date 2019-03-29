@@ -15,13 +15,13 @@
 
 // These functions are required to be present by the compiler / builtins.
 
-// Handler for pure virtual function calls.
+/// Handler for pure virtual function calls.
 extern "C" void __cxa_pure_virtual();
 extern "C" void __cxa_pure_virtual() {
     // Simply hang the machine, this shouldn't happen anyway.
     asm volatile ("cli \n hlt");
 }
 
-// This isn't necessary since the kernel never exits.
+/// This isn't necessary since the kernel never exits.
 extern "C" void __cxa_atexit(void (*)(void*), void*, void*);
 extern "C" void __cxa_atexit(void (*)(void*), void*, void*) { }

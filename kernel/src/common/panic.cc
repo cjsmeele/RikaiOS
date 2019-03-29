@@ -12,41 +12,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-OUTPUT_FORMAT(elf32-i386)
-ENTRY(kernel_start)
+#include "panic.hh"
+#include "debug.hh"
+#include <os-std/string.hh>
 
-SECTIONS {
-    . = 0x00100000;
+using namespace ostd;
 
-    .start ALIGN (0x10) : {
-        src/start.o (*)
-    }
+void panic() {
+    DEBUG1(0xdeaddead);
 
-    .text ALIGN (0x10) : {
-        *(.text*)
-    }
+    // Print "PANIC" in the upper right corner of the screen.
+    constexpr String str = " PANIC! ";
 
-    .rodata ALIGN (0x10) : {
-        *(.rodata*)
+    for (size_t i = 0; i < str.length(); ++i)
+        ((volatile u16*)0xb8000)[80-str.length()+i]
+            = str[i] | 0x4f00;
 
-        . = ALIGN(0x10);
-        CTORS_START = .;
-        *(SORT(.ctor*))
-        CTORS_END = .;
-    }
-
-    .data ALIGN (0x10) : {
-        *(.data)
-    }
-
-    .bss ALIGN (0x10) : {
-        KERNEL_BSS_START = .;
-        *(COMMON)
-        *(.bss)
-        KERNEL_BSS_END = .;
-    }
-
-    /DISCARD/ : {
-        *(.comment)
-    }
+    // Hang the machine.
+    asm volatile ("cli\n hlt");
 }

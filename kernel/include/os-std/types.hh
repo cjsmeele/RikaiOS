@@ -12,41 +12,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-OUTPUT_FORMAT(elf32-i386)
-ENTRY(kernel_start)
+#pragma once
 
-SECTIONS {
-    . = 0x00100000;
+// Type aliases.
 
-    .start ALIGN (0x10) : {
-        src/start.o (*)
-    }
+using u64 = unsigned long long;
+using u32 = unsigned int;
+using u16 = unsigned short;
+using u8  = unsigned char;
 
-    .text ALIGN (0x10) : {
-        *(.text*)
-    }
+using s64 = signed long long;
+using s32 = signed int;
+using s16 = signed short;
+using s8  = signed char;
 
-    .rodata ALIGN (0x10) : {
-        *(.rodata*)
-
-        . = ALIGN(0x10);
-        CTORS_START = .;
-        *(SORT(.ctor*))
-        CTORS_END = .;
-    }
-
-    .data ALIGN (0x10) : {
-        *(.data)
-    }
-
-    .bss ALIGN (0x10) : {
-        KERNEL_BSS_START = .;
-        *(COMMON)
-        *(.bss)
-        KERNEL_BSS_END = .;
-    }
-
-    /DISCARD/ : {
-        *(.comment)
-    }
-}
+using size_t    = u32;
+using ssize_t   = s32;
+using ptrdiff_t = s32;

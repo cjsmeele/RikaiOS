@@ -3,6 +3,10 @@ target remote :1133
 set disassembly-flavor intel
 layout split
 focus cmd
+
+# Uncomment to break at the kernel entrypoint (before global constructors are called).
 #break *0x100000
 break kmain
+break panic
+
 continue

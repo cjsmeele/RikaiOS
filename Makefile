@@ -55,27 +55,27 @@ kernel:
 run: qemu
 
 qemu: $(DISK_IMG)
-	$(QEMU) \
+	$(QEMU)                                \
 	    -name osdev                        \
-	    -m 512                             \
+	    -m 1G                              \
 	    -drive format=raw,file=$(DISK_IMG) \
 	    -serial stdio
 
 qemu-kvm: $(DISK_IMG)
-	$(QEMU_KVM) \
+	$(QEMU_KVM)                            \
 	    -name osdev                        \
-	    -m 512                             \
+	    -m 1G                              \
 	    -drive format=raw,file=$(DISK_IMG) \
 	    -serial stdio
 
 debug: $(DISK_IMG)
-	$(QEMU) \
+	$(QEMU)                                \
 	    -name osdev                        \
-	    -m 512                             \
+	    -m 1G                              \
 	    -drive format=raw,file=$(DISK_IMG) \
 	    -serial file:serial-out.bin        \
 	    -S -gdb tcp::1133 &
-	$(GDB) -q -x $(GDBRC)
+	$(Q)$(GDB) -q -x $(GDBRC)
 
 bochs: $(DISK_IMG)
 	$(Q)rm -f $(DISK_IMG).lock

@@ -14,16 +14,27 @@
  */
 #pragma once
 
-// Type aliases.
+#include <os-std/types.hh>
 
-using u64 = unsigned long long;
-using u32 = unsigned int;
-using u16 = unsigned short;
-using u8  = unsigned char;
+namespace ostd {
 
-using s64 = signed long long;
-using s32 = signed int;
-using s16 = signed short;
-using s8  = signed char;
+    template<typename T>
+    T *mem_set(T *s, const T &c, size_t n) {
+        for (size_t i = 0; i < n; ++i)
+            s[i] = c;
+        return s;
+    }
 
-using size_t = u32;
+    template<typename T>
+    T *mem_copy(T *dst, const T *src, size_t n) {
+        for (size_t i = 0; i < n; ++i)
+            dst[i] = src[i];
+        return dst;
+    }
+
+    constexpr size_t strlen(const char *s) {
+        size_t i = 0;
+        for (; s[i]; ++i);
+        return i;
+    }
+}
