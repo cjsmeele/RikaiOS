@@ -226,27 +226,34 @@ namespace ostd {
 
     namespace Format {
         template<typename F>
-        constexpr void format(F print, Flags &f, StringView s) {
+        constexpr int format(F &print, Flags &f, StringView s) {
             if (!s) s = "<null>";
+
+            int count = 0;
 
             int pad = f.width ? f.width - (int)s.length() : 0;
 
             if (!f.align_left && pad > 0)
-                format_padding(print, ' ', pad);
+                count += format_padding(print, ' ', pad);
 
             print(s);
 
             if (f.align_left && pad > 0)
-                format_padding(print, ' ', pad);
+                count += format_padding(print, ' ', pad);
+
+            return count + s.length();
         }
     }
 
     /// Format a string, write results into a String.
     template<size_t StrLen, typename... As>
-    void fmt(String<StrLen> &dest, const char *s, const As&... args) {
-        String<StrLen> tmp;
-        fmt(tmp.data(), StrLen+1, s, args...);
-        tmp.length_ = str_length(tmp.data());
-        dest = tmp;
+    constexpr int fmt(String<StrLen> &dest, const char *s, const As&... args) {
+        int count = fmt(dest.data()+dest.length()
+                       ,StrLen+1 - dest.length()
+                       ,s, args...);
+
+        dest.length_ += count;
+
+        return count;
     }
 }

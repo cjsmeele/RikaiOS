@@ -14,10 +14,6 @@
  */
 #include <os-std/types.hh>
 
-/** \file
- * Functions that are required to be present by the compiler / builtins.
- */
-
 /// Handler for pure virtual function calls.
 extern "C" void __cxa_pure_virtual();
 extern "C" void __cxa_pure_virtual() {

@@ -25,20 +25,17 @@
  * String formatting library.
  *
  * fmt takes a format string, containing zero or more bracketed blocks (`{}`),
- * and any number of other arguments. It then parser the blocks for formatting
+ * and any number of other arguments. It then parses the blocks for formatting
  * options and prints the arguments in order, each with their own applied
  * formatting options.
  *
  * fmt is recursive, but recursion depth is bounded by the number of arguments
  * passed to it. As such, its max recursion depth is known at compile-time.
  *
- * \todo Expand documentation.
+ * \todo Expand documentation (examples).
  */
 
 namespace ostd {
-
-    template<typename F, typename... As>
-    void fmt(F p, const char *s, const As&... args);
 
     namespace Format {
 
@@ -61,47 +58,56 @@ namespace ostd {
         };
 
         template<typename F>
-        constexpr void format_padding(F print, char c, int count) {
+        constexpr int format_padding(F &print, char c, int count) {
             for (int i = 0; i < count; ++i)
                 print(c);
+            return count;
         }
 
         template<typename F>
-        constexpr void format(F print, Flags &f, const char *s) {
+        constexpr int format(F &print, Flags &f, const char *s) {
             if (!s) s = "<null>";
+
+            int count = 0;
 
             int pad = f.width ? f.width - (int)str_length(s) : 0;
 
             if (!f.align_left && pad > 0)
-                format_padding(print, ' ', pad);
+                count += format_padding(print, ' ', pad);
 
+            count += str_length(s);
             print(s);
 
             if (f.align_left && pad > 0)
-                format_padding(print, ' ', pad);
+                count += format_padding(print, ' ', pad);
+
+            return count;
         }
 
         /// Formatter for characters.
-        template<typename F> constexpr void format(F print, Flags &f, char c) {
+        template<typename F> constexpr int format(F &print, Flags &f, char c) {
             if (f.repeat) {
                 for (int i = 0; i < f.width; ++i)
                     print(c);
+                return f.width;
             } else {
+                int count = 1;
                 int pad = f.width ? f.width - 1 : 0;
-                if (!f.align_left) format_padding(print, ' ', pad);
+                if (!f.align_left) count += format_padding(print, ' ', pad);
                 print(c);
-                if (f.align_left)  format_padding(print, ' ', pad);
+                if (f.align_left)  count += format_padding(print, ' ', pad);
+                return count;
             }
         }
 
         /// Formatter for booleans.
-        template<typename F> constexpr void format(F print, Flags &f, bool b) {
-            format(print, f, b ? "true" : "false");
+        template<typename F> constexpr int format(F &print, Flags &f, bool b) {
+            return format(print, f, b ? "true" : "false");
         }
 
         /// Formatter for unsigned numbers.
         template<typename F>
-        constexpr void format(F print, Flags f, u64 n, bool sign = false) {
+        constexpr int format(F &print, Flags f, u64 n, bool sign = false) {
             char buf[2 * 64 + 3] = {}; // max length (binary full 64-bit number + sign and radix).
             int  i          = 0;
             int  prefix_len = 0;
@@ -153,7 +159,8 @@ namespace ostd {
                 buf[i++] = '0';
             }
 
-            int pad = f.width ? f.width - (prefix_len + (int)i) : 0;
+            int count = int(i) + prefix_len;
+            int pad = f.width ? f.width - count : 0;
 
             if (pad > 0 && !f.align_left && !f.prefix_zero)
                 format_padding(print, ' ', pad);
@@ -174,29 +181,31 @@ namespace ostd {
 
             if (pad > 0 && f.align_left)
                 format_padding(print, ' ', pad);
+
+            return count + pad;
         }
 
         /// Formatter for signed numbers.
         template<typename F>
-        constexpr void format(F print, Flags &f, s64 n) {
+        constexpr int format(F &print, Flags &f, s64 n) {
             if (n >= 0)
-                 format(print, f, (u64) n);
-            else format(print, f, (u64)-n, !f.unsign);
+                 return format(print, f, (u64) n);
+            else return format(print, f, (u64)-n, !f.unsign);
         }
 
         /// \name Formatters for all numeric types.
         ///@{
-        template<typename F> constexpr void format(F print, Flags &f,  s8 n) { format(print, f, (s64)n); }
-        template<typename F> constexpr void format(F print, Flags &f, s16 n) { format(print, f, (s64)n); }
-        template<typename F> constexpr void format(F print, Flags &f, s32 n) { format(print, f, (s64)n); }
-        template<typename F> constexpr void format(F print, Flags &f,  u8 n) { format(print, f, (u64)n); }
-        template<typename F> constexpr void format(F print, Flags &f, u16 n) { format(print, f, (u64)n); }
-        template<typename F> constexpr void format(F print, Flags &f, u32 n) { format(print, f, (u64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f,  s8 n) { return format(print, f, (s64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f, s16 n) { return format(print, f, (s64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f, s32 n) { return format(print, f, (s64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f,  u8 n) { return format(print, f, (u64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f, u16 n) { return format(print, f, (u64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f, u32 n) { return format(print, f, (u64)n); }
         ///@}
 
         /// Formatter for pointers.
         template<typename F>
-        constexpr void format(F print, Flags &f, void *a) {
+        constexpr int format(F &print, Flags &f, void *a) {
             f.radix        = 16;
             f.prefix_zero  = true;
             f.unsign       = true;
@@ -207,26 +216,29 @@ namespace ostd {
 
             if (f.prefix_radix) f.width += 2;
 
-            format(print, f, (u64)a);
+            return format(print, f, (u64)a);
         }
 
-        /// Parses flags and runs a formatting function for each argument.
-        template<typename F, typename A, typename... As>
-        constexpr void run_format(F print, const char *s, const A &a, const As&... as) {
-            bool in_brace = false;
-            Flags flags;
+        struct ParseResult {
+            int write;      ///< How many chars to write from the format string.
+            int skip;       ///< How many chars to skip after that.
+            bool write_arg; ///< Whether to write an argument after that.
+            Flags flags;    ///< The flags to use for printing the next argument.
+        };
 
-            auto reset = [&] () { flags    = Flags{};
-                                  in_brace = false; };
+        /// Parses flags and runs a formatting function for each argument.
+        constexpr ParseResult parse_one(const char *s) {
+            ParseResult res { };
+
+            bool in_brace = false;
+            auto &flags = res.flags;
 
             for (; *s; ++s) {
                 auto c = *s;
                 if (in_brace) {
-                    if (c == '}') {
-                        format(print, flags, a);
-                        fmt(print, s+1, as...);
-                        return;
-                    } else if (c == '{') { print(c); reset();
+                    res.skip++;
+                           if (c == '}') { res.write_arg = true;      return res;
+                    } else if (c == '{') { res.write++; res.skip = 1; return res;
                     } else if (c == '0' && !flags.width)
                                          { flags.prefix_zero   = true;
                     } else if (c == 'r' && flags.width > 1)
@@ -248,54 +260,169 @@ namespace ostd {
                     } else if (c == '~') { flags.repeat        = true;
                     }
                 } else {
-                    if (c == '{') in_brace = true;
-                    else          print(c);
+                    if (c == '{') in_brace = true, res.skip++;
+                    else          res.write++;
                 }
+            }
+            return res;
+        }
+
+        struct FormatOneResult { int read, written; };
+
+        /// Parses flags and runs formatting for one argument.
+        template<typename F, typename A>
+        constexpr FormatOneResult format_one(F &print, const char *s, const A &a) {
+
+            int read    = 0; ///< The amount of characters read from s.
+            int written = 0; ///< The amount of characters printed.
+
+            while (*s) {
+                auto res = parse_one(s);
+                for (size_t i = 0; i < res.write; ++i, ++s)
+                    print(*s);
+                s += res.skip;
+
+                read    += res.write + res.skip;
+                written += res.write;
+
+                if (res.write_arg) {
+                    written += format(print, res.flags, a);
+                    break;
+                }
+            }
+            return { read, written };
+        }
+
+        /// Parses and formats everything.
+        template<typename F, typename A, typename... As>
+        constexpr int run_format(F &print, const char *s, const A &a, const As&... as) {
+
+            auto [read, written] = format_one(print, s, a);
+
+            if constexpr (sizeof...(as)) {
+                if (!s) return written;
+                else    return written + run_format(print, s + read, as...);
+            } else {
+                print(s + read);
+                return written + str_length(s + read);
             }
         }
 
-        /// Wrapper for formatting callbacks.
-        template<typename F>
-        struct Callback {
-            F print;
-            void operator()(char c) {
-                if constexpr (is_callable<F,char>::value) {
+        /// Callback for writing to strings.
+        struct StringPrinter {
+            char  *dest;
+            size_t dest_size;
+
+            constexpr void operator()(char c) {
+                if (dest_size >= 2) {
+                    // Add a char and insert a NUL terminator right after (to
+                    // be overwritten on the next print).
+                    *dest++ = c;
+                    *dest   = 0;
+                    dest_size--;
+                }
+            }
+
+            constexpr void operator()(const char *s) {
+                int written = str_copy(dest, s, dest_size);
+                dest       += written;
+                dest_size  -= written;
+            }
+        };
+
+        /// Wrapper for callbacks that take only chars or only strings.
+        template<typename P>
+        struct CallbackWrapper {
+            P &print;
+
+            constexpr void operator()(char c) {
+                if constexpr (is_callable<P,char>::value) {
                     print(c);
                 } else {
                     char buf[2] = {c, 0};
                     print(buf);
                 }
             }
-            void operator()(const char *s) {
-                if constexpr (is_callable<F,const char*>::value)
+
+            constexpr void operator()(const char *s) {
+                // Pick the right printer at compile-time.
+
+                if constexpr (is_callable<P,const char*>::value)
                      print(s);
                 else while (*s) print(*s++);
             }
 
-            Callback(F print) : print(print) { }
+            CallbackWrapper(P &print)
+                : print(print) { }
         };
     }
 
-    /// Format a string, pass results to a callback.
+    /**
+     * Format a string, pass results to a callback.
+     *
+     * The callback print is a function that will be called repeatedly with
+     * parts of the formatted string.
+     *
+     * Callback print can be either a function that takes one of `char` or
+     * `const char*`, or it may be a callable object that has overloads for one
+     * or both of those types.
+     *
+     * \return the amount of characters written
+     */
     template<typename F, typename... As>
-    void fmt(F p, const char *s, const As&... args) {
-        if constexpr (sizeof...(As) > 0) {
-            Format::run_format(Format::Callback{p}, s, args...);
+    constexpr int fmt(F &print, const char *s, const As&... args) {
+        // Is this callback sophisticated enough?
+        if constexpr (is_callable<F,char>::value
+                   && is_callable<F,const char*>::value) {
+
+            if constexpr (sizeof...(As) > 0) {
+                return Format::run_format(print, s, args...);
+            } else {
+                // No args other than the format string, bypass the parser.
+                print(s);
+                return str_length(s);
+            }
         } else {
-            // No args other than the format string.
-            Format::Callback{p}(s);
+            // Callback does not handle both chars and strings, wrap it.
+            Format::CallbackWrapper w {print};
+            return fmt(w, s, args...);
         }
     }
 
-    /// Format a string, write results into a string.
+    /**
+     * Format a string, pass results to a callback.
+     *
+     * The callback print is a function that will be called repeatedly with
+     * parts of the formatted string.
+     *
+     * Callback print can be either a function that takes one of `char` or
+     * `const char*`, or it may be a callable object that has overloads for one
+     * or both of those types.
+     *
+     * \return the amount of characters written
+     */
+    template<typename F, typename... As>
+    constexpr int fmt(F &&print, const char *s, const As&... args) {
+        F p2(print); return fmt(p2, s, args...);
+    }
+
+    /**
+     * Format a string, write results into a string.
+     *
+     * This writes up to dest_size-1 characters into dest, and always writes a
+     * NUL byte at the end.
+     *
+     * \return the amount of characters written
+     */
     template<typename... As>
-    void fmt(char *dest, size_t dest_size, const char *s, const As&... args) {
+    constexpr int fmt(char *dest, size_t dest_size, const char *s, const As&... args) {
         if constexpr (sizeof...(As) > 0) {
-            size_t i = 0;
-            fmt([&] (char c) { dest[i++] = c; }, s, args...);
+            auto sp = Format::StringPrinter{dest, dest_size};
+            return fmt(sp, s, args...);
         } else {
-            // No args other than the format string.
-            str_copy(dest, s, dest_size);
+            // No args other than the format string,
+            // simply copying the string is faster.
+            return str_copy(dest, s, dest_size);
         }
     }
 }

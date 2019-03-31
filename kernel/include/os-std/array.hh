@@ -80,15 +80,17 @@ namespace ostd {
 namespace ostd::Format {
     /// Formatter for arrays.
     template<typename F, typename T, size_t N>
-    void format(F print, Flags f, const Array<T,N> &ar) {
+    constexpr int format(F &print, Flags f, const Array<T,N> &ar) {
+        int count = 0;
         print("[ ");
         bool first = true;
         for (const auto &el : ar) {
             if (first) first = false;
-            else       print(", ");
+            else       print(", "), count += 2;
 
-            format(print, f, el);
+            count += format(print, f, el);
         }
         print(" ]");
+        return count + 4; // + brackets.
     }
 }

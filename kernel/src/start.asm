@@ -17,21 +17,35 @@
 global kernel_start
 extern kmain
 
+extern KERNEL_BSS_START
+extern KERNEL_BSS_END
+
 ;; Kernel entrypoint.
 ;; This sets up a stack and calls main.
 kernel_start:
+    ;; First we must clear our kernel BSS section, since it is not loaded from
+    ;; disk and the memory area may contain garbage.
+.clear_bss:
+    xor eax, eax
+    mov edi, KERNEL_BSS_START
+    mov ecx, KERNEL_BSS_END
+.loop_bss:
+    cmp edi, ecx
+    jge .end_bss
+    stosd ; bss start and end are 4-byte aligned, so write 4 bytes at a time.
+    jmp .loop_bss
+.end_bss:
+    ;; Now create a stack.
     mov esp, kernel_stack_top
+
     push edx ; Boot information struct pointer, passed to kmain.
+
     call run_constructors
     call kmain
+
     ;; If kmain ever returns, hang the machine.
     cli
     hlt
-
-align 16
-;; Create a 32K stack.
-kernel_stack:     times (32*1024) db 0
-kernel_stack_top:
 
 ;; Some C++ datastructures must be initialised manually at startup.
 ;; These initialisation steps are recorded as function addresses in the .ctors
@@ -55,3 +69,10 @@ run_constructors:
     jmp .loop
 .end:
     ret
+
+section .bss
+
+;; Create a 32K stack in the BSS section.
+align 16
+kernel_stack:     resb (32*1024)
+kernel_stack_top:

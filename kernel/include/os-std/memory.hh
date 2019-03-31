@@ -43,16 +43,22 @@ namespace ostd {
      *
      * A terminating NUL byte is always written as long as dst_size > 0.
      * dst_size must include space for a NUL byte.
+     *
+     * \return the amount of characters copied (excluding the NUL byte)
      */
-    constexpr void str_copy(char *__restrict dst, const char *__restrict src, size_t dst_size) {
+    constexpr size_t str_copy(      char *__restrict dst
+                             ,const char *__restrict src
+                             ,size_t dst_size) {
         if (dst_size == 0)
-            return;
+            return 0;
 
         size_t i = 0;
         for (; i < dst_size-1 && src[i]; ++i)
             dst[i] = src[i];
 
         dst[i] = 0;
+
+        return i;
     }
 }
 

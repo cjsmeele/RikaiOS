@@ -74,7 +74,7 @@ namespace ostd {
 namespace ostd::Format {
     /// Formatter for bitsets.
     template<typename F, size_t N>
-    void format(F print, Flags f, const Bitset<N> &bitset) {
+    constexpr int format(F &print, Flags f, const Bitset<N> &bitset) {
         String<N+2> buffer;
         if (f.prefix_radix)
             buffer += "0b";
@@ -82,6 +82,6 @@ namespace ostd::Format {
             buffer += bitset[N-i-1] ? '1' : '0';
 
         // Handle padding.
-        format(print, f, buffer);
+        return format(print, f, buffer);
     }
 }

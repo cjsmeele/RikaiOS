@@ -18,43 +18,57 @@
 
 #include <os-std/fmt.hh>
 
+void print(char c) {
+
+    static int x = 0;
+    static int y = 0;
+
+    if (c == '\n' || x >= 80) {
+        x = 0, y++;
+        if (y >= 25)
+            y = 0;
+    } else {
+        ((volatile u16*)0xb8000)[y*80+(x++)] = 0x0700 | c;
+    }
+}
+
+void cls() {
+    for (int y = 0; y < 25; ++y) {
+        for (int x = 0; x < 80; ++x) {
+            ((volatile u16*)0xb8000)[y*80+x] = 0x0720;
+        }
+    }
+}
+
 extern "C"
 void kmain(const boot_info_t &boot_info) {
 
     Gdt::init();
 
-    for (int y = 0; y < 25; ++y) {
-        for (int x = 0; x < 80; ++x) {
-            ((volatile u16*)0xb8000)[y*80+x]
-                = 0x7020;
-                // = x&1 ? 0x8700 | 0xdf
-                //       : 0x7800 | 0xdf;
-        }
-    }
+    cls();
 
-    String<80*25> str = "formatted text:\n\n";
+    fmt(print, "formatted text:\n\n");
 
-    {
-        String<80> tmp;
+    fmt(print, "{8   } {8   } {8 } {8 }\n" , "hex", "oct", "dec", "bin");
+    fmt(print, "{8~  } {8~  } {8~} {8~}\n" , '-', '-', '-', '-');
+    fmt(print, "{08#x} {08#o} {8 } {8 }\n" , 42, 42, 42, Bitset<8>(42));
 
-        fmt(tmp, "{8   } {8   } {8 } {8 }\n" , "hex", "oct", "dec", "bin"); str += tmp;
-        fmt(tmp, "{8~  } {8~  } {8~} {8~}\n" , '-', '-', '-', '-');         str += tmp;
-        fmt(tmp, "{08#x} {08#o} {8 } {8 }\n" , 42, 42, 42, Bitset<8>(42));  str += tmp;
+    auto ar = Array{1,22,333,4444,999999};
 
-        auto ar = Array{1,22,333,4444,999999};
+    fmt(print, "\nThis is an array:       {   }\n", ar);
+    fmt(print,   "This is the same array: {#7x}\n", ar);
+    fmt(print,   "This is the same array: {07 }\n", ar);
+    fmt(print,   "This is the same array: { 7S}\n", ar);
 
-        fmt(tmp, "\nThis is an array:       {   }\n", ar); str += tmp;
-        fmt(tmp,   "This is the same array: {#7x}\n", ar); str += tmp;
-        fmt(tmp,   "This is the same array: {07 }\n", ar); str += tmp;
-        fmt(tmp,   "This is the same array: { 7S}\n", ar); str += tmp;
-    }
+    fmt(print, "\nMemory map:\n");
 
-    int x = 0, y = 0;
-    for (char c : str) {
-        if (c == '\n') {
-            x = 0, y++;
-        } else {
-            ((volatile u16*)0xb8000)[y*80+(x++)] = 0x0f00 | c;
+    for (size_t i = 0; i < boot_info.memory_region_count; ++i) {
+        auto &region = boot_info.memory_regions[i];
+        if (region.start < intmax<u32>::value) {
+            fmt(print, "{} - {} {6S} free\n"
+               ,(u8*)region.start
+               ,(u8*)region.start + (region.size-1)
+               ,region.size);
         }
     }
 

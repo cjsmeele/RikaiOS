@@ -1,6 +1,7 @@
 #error:       action=fatal
 boot:        disk
 cpu:         ips=30000000
+megs:        512
 ata0:        enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
 ata0-master: type=disk, path="./disk.img"
 #clock:       sync=both, time0=utc

@@ -31,7 +31,9 @@ SECTIONS {
 
         . = ALIGN(0x10);
         CTORS_START = .;
+
         *(SORT(.ctor*))
+
         CTORS_END = .;
     }
 
@@ -41,8 +43,11 @@ SECTIONS {
 
     .bss ALIGN (0x10) : {
         KERNEL_BSS_START = .;
+
         *(COMMON)
         *(.bss)
+
+        . = ALIGN(0x10);
         KERNEL_BSS_END = .;
     }
 
