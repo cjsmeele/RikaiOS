@@ -25,10 +25,29 @@ else
     MAKEFLAGS += --no-print-directory
 endif
 
-AS      = nasm
-CXX     = clang++
-LD      = ld.lld
-OBJCOPY = llvm-objcopy
+ifndef TOOLCHAIN
+    # Default to clang: it doesn't require building a cross-compiler.
+    TOOLCHAIN = clang
+
+    # Use TOOLCHAIN=custom if you want to override CXX/LD etc. manually on the
+    # command-line.
+endif
+
+AS = nasm
+
+ifeq ($(TOOLCHAIN), gcc)
+    CXX        = i686-elf-g++
+    LD         = i686-elf-ld
+    OBJCOPY    = i686-elf-objcopy
+    USE_LIBGCC = 1
+endif
+ifeq ($(TOOLCHAIN), clang)
+    CXX         = clang++ --target=i686-elf
+    LD          = ld.lld
+    OBJCOPY     = llvm-objcopy
+    USE_CLANGRT = 1
+endif
+
 DOXYGEN = doxygen
 
 ASM_SOURCES = $(shell find src -name '*.asm')
@@ -37,16 +56,16 @@ CXX_SOURCES = $(shell find src -name '*.cc')
 ASFLAGS = -f elf32
 
 # Search path for C++ headers.
-CXX_INCLUDE =                \
-	-isystem ./include       \
-	-isystem ./src           \
-	-I       ../boot/include
+CXX_INCLUDE =          \
+	-I ../boot/include \
+	-I ./include       \
+	-I ./src
 
 # Lots of options for the C++ compiler, mostly to tell it that we are running
 # "bare-metal", and to enable most warnings.
 
 CXXFLAGS =                          \
-	--target=i686-elf               \
+	-march=i686                     \
 	-m32                            \
 	-Os                             \
 	-g3                             \
@@ -68,29 +87,39 @@ CXXFLAGS =                          \
 	-Wpedantic                      \
 	-Werror=return-type             \
 	-Werror=unused-result           \
-	-Werror=return-std-move         \
 	-Wshadow                        \
 	-Wpointer-arith                 \
 	-Wcast-align                    \
 	-Wwrite-strings                 \
 	-Wmissing-declarations          \
 	-Wredundant-decls               \
-	-Winline                        \
 	-Wuninitialized                 \
 	-Wfatal-errors                  \
 	-fdiagnostics-color=auto
 
-# The clang builtins lib contains runtime support functions that are needed for
-# a.o. some division operations, floating point ops, and advanced bit
-# operations (popcnt, etc.).
-LD_BUILTIN_DIR  = $(wildcard /usr/lib/clang/*/lib/linux)
-LD_BUILTIN_NAME = clang_rt.builtins-i386
+# The GCC libgcc lib and the clang builtins lib contain runtime support
+# functions that are needed for a.o. some division operations, floating point
+# ops, and advanced bit operations (popcnt, etc.).
+ifdef USE_LIBGCC
+    LD_BUILTIN_DIR  =                                          \
+        .                                                      \
+        $(wildcard /usr/local/lib/gcc/i686-elf/*) \
+        $(wildcard /usr/lib/gcc/i686-elf/*)
+    LD_BUILTIN_NAME = gcc
+endif
+ifdef USE_CLANGRT
+    LD_BUILTIN_DIR  =                                \
+        .                                            \
+        $(wildcard /usr/local/lib/clang/*/lib/linux) \
+        $(wildcard /usr/lib/clang/*/lib/linux)
+    LD_BUILTIN_NAME = clang_rt.builtins-i386
+endif
 
 LDFLAGS =                              \
 	-Tkernel.ld                        \
 	-Map=kernel.map                    \
 	$(addprefix -L, $(LD_BUILTIN_DIR)) \
-	-l$(LD_BUILTIN_NAME)
+	$(addprefix -l, $(LD_BUILTIN_NAME))
 
 DEPFILE    = deps.make
 CXX_D      = $(CXX_SOURCES:src/%.cc=d/%.d)
@@ -102,6 +131,10 @@ KERNEL_BIN = kernel.bin
 .PHONY: all elf bin dep doc clean
 
 -include Makefile.local
+
+ifdef WERROR
+    CXXFLAGS += -Werror
+endif
 
 all: bin
 elf: $(KERNEL_ELF)
@@ -120,7 +153,7 @@ $(KERNEL_BIN): $(KERNEL_ELF)
 
 $(KERNEL_ELF): $(ASM_O) $(CXX_O)
 	$(F)$@
-	$(Q)mkdir -p $(@D) && $(LD) $(LDFLAGS) -o $@ $^
+	$(Q)mkdir -p $(@D) && $(LD) -o $@ $^ $(LDFLAGS)
 
 $(CXX_O): o/%.o: src/%.cc
 	$(F)$@

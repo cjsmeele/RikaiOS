@@ -14,6 +14,8 @@
 
 [bits 32]
 
+section .start
+
 global kernel_start
 extern kmain
 

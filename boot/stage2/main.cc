@@ -22,6 +22,11 @@
 extern "C"
 int stage2_main(u8  disk_no
                ,u32 kernel_start
+               ,u32 kernel_blocks);
+
+extern "C"
+int stage2_main(u8  disk_no
+               ,u32 kernel_start
                ,u32 kernel_blocks) {
 
     // Responsibilities of stage2:

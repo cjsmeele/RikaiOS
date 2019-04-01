@@ -19,7 +19,7 @@ SECTIONS {
     . = 0x00100000;
 
     .start ALIGN (0x10) : {
-        src/start.o (*)
+        o/start.o (.start)
     }
 
     .text ALIGN (0x10) : {

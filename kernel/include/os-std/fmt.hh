@@ -48,13 +48,23 @@ namespace ostd {
                 u8 radix           = 10;
                 u8 scale;
             };
-            bool explicit_sign : 1 = false; ///< (only for numbers)
-            bool unsign        : 1 = false; ///< Remove sign bit.
-            bool prefix_radix  : 1 = false; ///< Prefix number with 0b, 0x, 0o, or 0d.
-            bool align_left    : 1 = false;
-            bool prefix_zero   : 1 = false; ///< (only for numbers)
-            bool repeat        : 1 = false; ///< (only for chars) fill width by repetition
-            bool size          : 1 = false; ///< (only for numbers) format as human-readable K/M/G
+            bool explicit_sign : 1; ///< (only for numbers)
+            bool unsign        : 1; ///< Remove sign bit.
+            bool prefix_radix  : 1; ///< Prefix number with 0b, 0x, 0o, or 0d.
+            bool align_left    : 1;
+            bool prefix_zero   : 1; ///< (only for numbers)
+            bool repeat        : 1; ///< (only for chars) fill width by repetition
+            bool size          : 1; ///< (only for numbers) format as human-readable K/M/G
+
+            constexpr Flags()
+                : explicit_sign (false)
+                , unsign        (false)
+                , prefix_radix  (false)
+                , align_left    (false)
+                , prefix_zero   (false)
+                , repeat        (false)
+                , size          (false)
+            { }
         };
 
         template<typename F>
@@ -143,9 +153,9 @@ namespace ostd {
                   : '?');
             };
 
-            auto fmtdigit = [] (int n) {
-                if (n < 10) return n + '0';
-                else        return n - 10 + 'a';
+            auto fmtdigit = [] (int m) {
+                if (m < 10) return m + '0';
+                else        return m - 10 + 'a';
             };
 
             if (n) {
@@ -226,7 +236,7 @@ namespace ostd {
             Flags flags;    ///< The flags to use for printing the next argument.
         };
 
-        /// Parses flags and runs a formatting function for each argument.
+        /// Parses flags for at most one argument.
         constexpr ParseResult parse_one(const char *s) {
             ParseResult res { };
 
@@ -278,7 +288,7 @@ namespace ostd {
 
             while (*s) {
                 auto res = parse_one(s);
-                for (size_t i = 0; i < res.write; ++i, ++s)
+                for (int i = 0; i < res.write; ++i, ++s)
                     print(*s);
                 s += res.skip;
 
@@ -299,7 +309,7 @@ namespace ostd {
 
             auto [read, written] = format_one(print, s, a);
 
-            if constexpr (sizeof...(as)) {
+            if constexpr (sizeof...(as) > 0) {
                 if (!s) return written;
                 else    return written + run_format(print, s + read, as...);
             } else {
@@ -352,8 +362,8 @@ namespace ostd {
                 else while (*s) print(*s++);
             }
 
-            CallbackWrapper(P &print)
-                : print(print) { }
+            CallbackWrapper(P &print_)
+                : print(print_) { }
         };
     }
 

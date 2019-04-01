@@ -28,7 +28,7 @@ namespace ostd {
     /// \name Functions for classifying and manipulating characters.
     ///@{
     template<typename T>
-    constexpr bool is_oneof(const T v)         { return false; }
+    constexpr bool is_oneof(const T)           { return false; }
     template<typename T, typename... Us>
     constexpr bool is_oneof(const T v
                            ,const Us&... rest) { return ((v == rest) || ...); }

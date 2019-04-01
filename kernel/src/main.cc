@@ -18,21 +18,24 @@
 
 #include <os-std/fmt.hh>
 
-void print(char c) {
+static void print(StringView s) {
 
     static int x = 0;
     static int y = 0;
 
-    if (c == '\n' || x >= 80) {
-        x = 0, y++;
-        if (y >= 25)
-            y = 0;
-    } else {
-        ((volatile u16*)0xb8000)[y*80+(x++)] = 0x0700 | c;
+    for (char c : s) {
+        if (c == '\n' || x >= 80) {
+            x = 0, y++;
+            if (y >= 25)
+                y = 0;
+        } else {
+            ((volatile u16*)0xb8000)[y*80+(x++)] = 0x0700 | c;
+        }
     }
 }
 
-void cls() {
+
+static void cls() {
     for (int y = 0; y < 25; ++y) {
         for (int x = 0; x < 80; ++x) {
             ((volatile u16*)0xb8000)[y*80+x] = 0x0720;
@@ -40,8 +43,8 @@ void cls() {
     }
 }
 
-extern "C"
-void kmain(const boot_info_t &boot_info) {
+extern "C" void kmain(const boot_info_t &boot_info);
+extern "C" void kmain(const boot_info_t &boot_info) {
 
     Gdt::init();
 

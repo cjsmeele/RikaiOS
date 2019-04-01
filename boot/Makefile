@@ -25,10 +25,30 @@ else
     MAKEFLAGS += --no-print-directory
 endif
 
-AS      = nasm
-CXX     = clang++
-LD      = ld.lld
-OBJCOPY = llvm-objcopy
+ifndef TOOLCHAIN
+    # Default to clang: it doesn't require building a cross-compiler.
+    TOOLCHAIN = clang
+
+    # Use TOOLCHAIN=custom if you want to override CXX/LD etc. manually on the
+    # command-line.
+endif
+
+AS = nasm
+
+ifeq ($(TOOLCHAIN), gcc)
+    HOST_CXX   = g++
+    CXX        = i686-elf-g++
+    LD         = i686-elf-ld
+    OBJCOPY    = i686-elf-objcopy
+    USE_LIBGCC = 1
+endif
+ifeq ($(TOOLCHAIN), clang)
+    HOST_CXX    = clang++
+    CXX         = clang++ --target=i686-elf
+    LD          = ld.lld
+    OBJCOPY     = llvm-objcopy
+    USE_CLANGRT = 1
+endif
 
 STAGE2_CXX_SOURCES =  \
 	stage2/main.cc    \
@@ -51,7 +71,7 @@ STAGE2_ASFLAGS = -f elf32
 # "bare-metal", and to enable most warnings.
 
 STAGE2_CXXFLAGS =            \
-	--target=i686-elf        \
+	-march=i686              \
 	-m16                     \
 	-Os                      \
 	-g3                      \
@@ -73,7 +93,6 @@ STAGE2_CXXFLAGS =            \
 	-Wpedantic               \
 	-Werror=return-type      \
 	-Werror=unused-result    \
-	-Werror=return-std-move  \
 	-Wshadow                 \
 	-Wpointer-arith          \
 	-Wcast-align             \
@@ -94,6 +113,10 @@ STAGE2_CXX_O = $(STAGE2_CXX_SOURCES:%.cc=%.o)
 .PHONY: all bootloader stage1 stage2 installer clean
 
 -include Makefile.local
+
+ifdef WERROR
+    STAGE2_CXXFLAGS += -Werror
+endif
 
 all:        bootloader installer
 bootloader: stage1 stage2
@@ -127,4 +150,4 @@ stage2/start.o: stage2/start.asm
 
 utils/loader-install: utils/loader-install.cc
 	$(F)$@
-	$(Q)$(CXX) -Wall -Wextra -pedantic -std=c++17 -o $@ $<
+	$(Q)$(HOST_CXX) -Wall -Wextra -pedantic -std=c++17 -o $@ $<

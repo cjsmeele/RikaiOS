@@ -219,8 +219,8 @@ int main(int argc, const char **argv) {
 
     // Write bootsector signature.
     file_disk.seekp(0x1fe);
-    file_disk.put(0x55);
-    file_disk.put(0xaa);
+    file_disk.put((char)0x55);
+    file_disk.put((char)0xaa);
 
     return 0;
 }
