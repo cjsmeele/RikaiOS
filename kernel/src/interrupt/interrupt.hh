@@ -16,7 +16,7 @@
 
 #include "common.hh"
 
-namespace Interrupts {
+namespace Interrupt {
 
     inline void disable() { asm_cli(); } ///< Disables interrupts.
     inline void enable()  { asm_sti(); } ///< Enables interrupts.

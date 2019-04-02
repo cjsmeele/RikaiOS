@@ -12,11 +12,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
+
 #include "common.hh"
 
-
 /// Global Descriptor Table - handles memory segmentation.
-namespace Gdt {
+namespace Memory::Gdt {
+    /// Indices into the GDT.
+    enum {
+        i_null = 0,
+        i_kernel_code,
+        i_kernel_data,
+        i_user_code,
+        i_user_data,
+        i_tss,
+    };
+
     /// Initialises the Global Descriptor Table and loads it.
     void init();
 }

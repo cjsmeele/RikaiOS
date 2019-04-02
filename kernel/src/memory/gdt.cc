@@ -14,7 +14,7 @@
  */
 #include "gdt.hh"
 
-namespace Gdt {
+namespace Memory::Gdt {
 
     /**
      * Task State Segment.
@@ -61,26 +61,16 @@ namespace Gdt {
                 , 0x00'cf'fa'00'0000'ffffULL    // User code segment (cs).
                 , 0x00'cf'f2'00'0000'ffffULL    // User data segment (ds, ss, es, fs, gs).
                 , 0x00'50'89'00'0000'0067ULL }; // Task State Segment (TSS).
-    //              └┤ ││ └┤ └┤ └──┤ ╰──┴─ limit bits 0-15
-    //               │ ││  │  │    ╰────── base bits  0-15
-    //               │ ││  │  ╰─────────── base bits 16-23
-    //               │ ││  ╰────────────── access bits
-    //               │ │╰───────────────── limit bits 16-19
-    //               │ ╰────────────────── flags
-    //               ╰──────────────────── base bits 24─31
-
-    /// Indices into the GDT.
-    enum {
-        i_null = 0,
-        i_kernel_code,
-        i_kernel_data,
-        i_user_code,
-        i_user_data,
-        i_tss,
-    };
+    //              └┤ ││ └┤ └┤ └──┤ └──┴─ limit bits 0-15
+    //               │ ││  │  │    └────── base bits  0-15
+    //               │ ││  │  └─────────── base bits 16-23
+    //               │ ││  └────────────── access bits
+    //               │ │└───────────────── limit bits 16-19
+    //               │ └────────────────── flags
+    //               └──────────────────── base bits 24─31
 
     /// A 48-bit datastructure that indicates the location and size of the table.
-    const u64 gdt_ptr = (u64)table.data() << 16 | (sizeof(table) - 1);
+    static const u64 gdt_ptr = (u64)table.data() << 16 | (sizeof(table) - 1);
 
     void init() {
         tss.iomap_offset = 0x68; // Indicates we do not have an iomap.

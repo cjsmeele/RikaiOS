@@ -12,11 +12,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "interrupts.hh"
+#pragma once
 
-namespace Interrupts {
+#include "interrupt.hh"
 
+namespace Interrupt::Controller {
 
-    void init() {
-    }
+    void acknowledge_interrupt(u8 int_no);
+    void init();
 }

@@ -15,7 +15,7 @@
 #include "common.hh"
 #include "boot/bootinfo.hh"
 #include "memory/memory.hh"
-#include "interrupts/interrupts.hh"
+#include "interrupt/interrupt.hh"
 
 /**
  * \file
@@ -29,7 +29,7 @@ extern "C" void kmain(const boot_info_t &boot_info) {
     // Make sure we can write to the console.
     kprint_init();
 
-    Interrupts::init();
+    Interrupt::init();
     Memory::init();
 
     kprint("\neos-os is booting.\n");
@@ -43,6 +43,19 @@ extern "C" void kmain(const boot_info_t &boot_info) {
                   ,(u8*)region.start + (region.size-1)
                   ,region.size);
         }
+    }
+
+    kprint("\n(nothing to do - press ESC to crash and burn)\n\n");
+
+    // XXX temporary - sets PIT frequency to 1 KHz.
+    Io::out_8(0x43, 0x34);            Io::wait();
+    Io::out_8(0x40, (1*1193) & 0xff); Io::wait();
+    Io::out_8(0x40, (1*1193) >> 8);
+
+    Interrupt::enable();
+    for (int i = 0;; ++i) {
+        if (i % 50 == 0) kprint(".");
+        asm_hlt();
     }
 
     panic("reached end of kmain");

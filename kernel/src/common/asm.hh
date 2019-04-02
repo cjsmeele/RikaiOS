@@ -42,6 +42,9 @@
 inline void asm_hang() { asm_cli();
                          asm_hlt(); }
 
+/// Execute an invalid instruction, triggering an exception.
+inline void crash() { asm volatile("ud2"); }
+
 /// \name Functions for getting/setting special x86 registers.
 ///@{
 inline u32  asm_esp() { u32 x; asm volatile ("mov %%esp, %0"  : "=a"(x)); return x; }

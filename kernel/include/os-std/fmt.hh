@@ -42,9 +42,9 @@ namespace ostd {
          * Formatting flags.
          */
         struct Flags {
-            int  width             =  0;
+            int  width =  0;
             union {
-                u8 radix           = 10;
+                u8 radix = 10;
                 u8 scale;
             };
             bool explicit_sign : 1; ///< (only for numbers)
@@ -168,14 +168,16 @@ namespace ostd {
                 buf[i++] = '0';
             }
 
-            int count = int(i) + prefix_len;
+            int count = int(i);
             int pad = f.width ? f.width - count : 0;
+
+            count += prefix_len;
 
             if (pad > 0 && !f.align_left && !f.prefix_zero)
                 format_padding(print, ' ', pad);
 
             if (sign || f.explicit_sign) print(sign ? '-' : '+');
-            if (f.prefix_radix)          emit_radix();
+            if (f.prefix_radix)          emit_radix(), count += 2;
 
             if (pad > 0 && !f.align_left && f.prefix_zero)
                 format_padding(print, '0', pad);

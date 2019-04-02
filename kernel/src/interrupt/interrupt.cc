@@ -12,22 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
+#include "interrupt.hh"
+#include "controller.hh"
+#include "idt.hh"
 
-#include <os-std/fmt.hh>
-#include <os-std/string.hh>
+namespace Interrupt {
 
-/// Reports an error condition and halts the machine (does not return).
-void panic(ostd::StringView reason = "");
-
-/// Reports a formatted error condition and halts the machine (does not return).
-template<typename... As>
-void panic(const char *reason
-          ,const As&... args) {
-
-    static ostd::String<80*25> formatted; // a screenful seems like a good limit.
-    formatted = "";
-    ostd::fmt(formatted, reason, args...);
-
-    panic(formatted);
+    void init() {
+        Controller::init();
+        Idt::init();
+    }
 }

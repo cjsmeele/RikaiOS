@@ -14,20 +14,9 @@
  */
 #pragma once
 
-#include <os-std/fmt.hh>
-#include <os-std/string.hh>
+#include "common.hh"
 
-/// Reports an error condition and halts the machine (does not return).
-void panic(ostd::StringView reason = "");
+namespace Interrupt::Idt {
 
-/// Reports a formatted error condition and halts the machine (does not return).
-template<typename... As>
-void panic(const char *reason
-          ,const As&... args) {
-
-    static ostd::String<80*25> formatted; // a screenful seems like a good limit.
-    formatted = "";
-    ostd::fmt(formatted, reason, args...);
-
-    panic(formatted);
+    void init();
 }
