@@ -36,6 +36,30 @@ GDBRC    = ./gdbrc
 DISK_IMG    = ./disk.img
 DISK_SIZE_M = 100
 
+QEMU_SERIAL        = stdio
+QEMU_SERIAL_DEBUG  = file:serial-out.bin
+
+ifdef NOVGA
+    QEMU_DISPLAY = none
+else
+    QEMU_DISPLAY = sdl
+endif
+
+QEMUFLAGS =                            \
+    -name osdev                        \
+    -m 1G                              \
+    -drive format=raw,file=$(DISK_IMG) \
+    -serial $(QEMU_SERIAL)             \
+    -display $(QEMU_DISPLAY)
+
+QEMUFLAGS_DEBUG =                      \
+    -name osdev                        \
+    -m 1G                              \
+    -drive format=raw,file=$(DISK_IMG) \
+    -serial $(QEMU_SERIAL_DEBUG)       \
+    -display $(QEMU_DISPLAY)           \
+    -S -gdb tcp::1133
+
 .PHONY: build rebuild boot kernel disk run debug qemu qemu-kvm bochs clean
 
 -include Makefile.local
@@ -55,26 +79,13 @@ kernel:
 run: qemu
 
 qemu: $(DISK_IMG)
-	$(QEMU)                                \
-	    -name osdev                        \
-	    -m 1G                              \
-	    -drive format=raw,file=$(DISK_IMG) \
-	    -serial stdio
+	$(QEMU) $(QEMUFLAGS)
 
 qemu-kvm: $(DISK_IMG)
-	$(QEMU_KVM)                            \
-	    -name osdev                        \
-	    -m 1G                              \
-	    -drive format=raw,file=$(DISK_IMG) \
-	    -serial stdio
+	$(QEMU_KVM) $(QEMUFLAGS)
 
 debug: $(DISK_IMG)
-	$(QEMU)                                \
-	    -name osdev                        \
-	    -m 1G                              \
-	    -drive format=raw,file=$(DISK_IMG) \
-	    -serial file:serial-out.bin        \
-	    -S -gdb tcp::1133 &
+	$(QEMU) $(QEMUFLAGS_DEBUG) &
 	$(Q)$(GDB) -q -x $(GDBRC)
 
 bochs: $(DISK_IMG)
