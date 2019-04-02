@@ -93,16 +93,15 @@ namespace ostd {
     template<typename T>
     using remove_cvref = remove_ref<typename remove_cv<T>::type>;
 
-    template<typename T>
-    struct decay              { using type = typename remove_cvref<T>::type; };
-    template<typename T, typename... As>
-    struct decay<T(&&)(As...)> { using type = T(*)(As...); };
-    template<typename T, typename... As>
-    struct decay<T(&)(As...)> { using type = T(*)(As...); };
-    template<typename T, typename... As>
-    struct decay<T(As...)>    { using type = T(*)(As...); };
-    template<typename T, size_t N>
-    struct decay<T[N]>        { using type = typename remove_cvref<T>::type*; };
+    template<typename T>     struct decay                   { using type = typename remove_cvref<T>::type; };
+    template<typename T
+            ,size_t N>       struct decay<T[N]>             { using type = typename remove_cvref<T>::type*; };
+    template<typename T
+            ,typename... As> struct decay<T(&&)(As...)>     { using type = T(*)(As...); };
+    template<typename T
+            ,typename... As> struct decay<T(&)(As...)>      { using type = T(*)(As...); };
+    template<typename T
+            ,typename... As> struct decay<T(As...)>         { using type = T(*)(As...); };
 
     template<typename T> struct add_ref                     { using type = T&; };
     template<typename T> struct add_ref<T&>                 { using type = T;  };

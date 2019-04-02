@@ -33,19 +33,18 @@ namespace ostd {
     constexpr bool is_oneof(const T v
                            ,const Us&... rest) { return ((v == rest) || ...); }
 
-
     template<typename N>
-    constexpr bool inrange(N mi, N ma, N x) { return x >= mi && x <= ma; }
+    constexpr bool in_range(N mi, N ma, N x) { return x >= mi && x <= ma; }
 
-    constexpr char tolower (char c) { return inrange('A', 'Z', c) ? c - 'A' + 'a' : c;    }
-    constexpr char toupper (char c) { return inrange('a', 'z', c) ? c - 'a' + 'A' : c;    }
-    constexpr bool isspace (char c) { return is_oneof(c, ' ', '\t', '\n', '\r');          }
-    constexpr bool islower (char c) { return inrange('a', 'z', c);                        }
-    constexpr bool isupper (char c) { return inrange('A', 'Z', c);                        }
-    constexpr bool isalpha (char c) { return islower(c) || isupper(c);                    }
-    constexpr bool isnum   (char c) { return inrange('0', '9', c);                        }
-    constexpr bool ishexnum(char c) { return isnum(c)   || inrange('a', 'f', tolower(c)); }
-    constexpr bool isalnum (char c) { return isalpha(c) || isnum(c);                      }
+    constexpr char to_lower (char c) { return in_range('A', 'Z', c) ? c - 'A' + 'a' : c;      }
+    constexpr char to_upper (char c) { return in_range('a', 'z', c) ? c - 'a' + 'A' : c;      }
+    constexpr bool is_space (char c) { return is_oneof(c, ' ', '\t', '\n', '\r');             }
+    constexpr bool is_lower (char c) { return in_range('a', 'z', c);                          }
+    constexpr bool is_upper (char c) { return in_range('A', 'Z', c);                          }
+    constexpr bool is_alpha (char c) { return is_lower(c) || is_upper(c);                     }
+    constexpr bool is_num   (char c) { return in_range('0', '9', c);                          }
+    constexpr bool is_hexnum(char c) { return is_num(c)   || in_range('a', 'f', to_lower(c)); }
+    constexpr bool is_alnum (char c) { return is_alpha(c) || is_num(c);                       }
     ///@}
 
     struct StringView;
@@ -62,8 +61,10 @@ namespace ostd {
      * `Nchars` is the capacity of the string's contents; the NUL byte is not counted.
      *
      * Note that length() != size()!
-     * - size() always returns the *capacity* of the string.
-     * - length() always returns the amount of characters currently in the string
+     * - size() always returns the *capacity* of the string, that is, the
+     *   amount of characters it can hold excluding the NUL byte.
+     * - length() always returns the amount of characters *currently* in the
+     *   string
      */
     template<size_t Nchars>
     struct String {
@@ -138,6 +139,7 @@ namespace ostd {
         }
 
         constexpr operator StringView();
+        constexpr operator const char*() { return data_.data(); }
 
         constexpr String() { length_ = 0; }
 
@@ -149,12 +151,23 @@ namespace ostd {
             static_assert(N-1 <= Nchars);
         }
 
+        template<typename... Ts>
+        constexpr String(Ts... ts)
+            : data_{ts...}
+            , length_(sizeof...(Ts)) {
+
+            static_assert(sizeof...(Ts) <= Nchars);
+        }
+
         constexpr String(const char *data) { *this = data; }
     };
 
     // Deduction guide for string literals.
     template<size_t N>
     String(const char (&data)[N]) -> String<N-1>;
+
+    template<typename... Ts>
+    String(Ts... ts) -> String<sizeof...(Ts)>;
 
     /**
      * Provides a read-only view into a string.
@@ -243,9 +256,14 @@ namespace ostd {
 
             return count + s.length();
         }
+
+        template<typename F, size_t N>
+        constexpr int format(F &print, Flags &f, const String<N> &s) {
+            return format(print, f, StringView(s));
+        }
     }
 
-    /// Format a string, write results into a String.
+    /// Format a string, append results to a String.
     template<size_t StrLen, typename... As>
     constexpr int fmt(String<StrLen> &dest, const char *s, const As&... args) {
         int count = fmt(dest.data()+dest.length()

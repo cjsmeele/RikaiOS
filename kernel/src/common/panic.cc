@@ -15,13 +15,22 @@
 #include "panic.hh"
 #include "debug.hh"
 #include <os-std/string.hh>
+#include "kprint.hh"
+#include "asm.hh"
 
 using namespace ostd;
 
-void panic() {
+void panic(StringView reason) {
     DEBUG1(0xdeaddead);
 
+    kprint("\n*** kernel panic ***\n");
+    if (reason.length()) {
+        kprint(reason);
+        kprint("\n*** kernel panic ***\n");
+    }
+
     // Print "PANIC" in the upper right corner of the screen.
+    // (note: this assumes the vga is in default 80x25 textmode.
     constexpr StringView str = " PANIC! ";
 
     for (size_t i = 0; i < str.length(); ++i)
@@ -29,5 +38,5 @@ void panic() {
             = str[i] | 0x4f00;
 
     // Hang the machine.
-    asm volatile ("cli\n hlt");
+    asm_hang();
 }

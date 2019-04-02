@@ -14,20 +14,17 @@
  */
 #pragma once
 
-#include <os-std/fmt.hh>
-#include <os-std/string.hh>
+#include "common.hh"
 
-/// Reports an error condition and halts the machine (does not return).
-void panic(ostd::StringView reason = "");
+/**
+ * VGA text-mode console.
+ *
+ * This is the default PC video mode at boot-up.
+ */
+namespace Console::TextMode {
+    /// Prints a character to the screen.
+    void print_char(char c);
 
-/// Reports a formatted error condition and halts the machine (does not return).
-template<typename... As>
-void panic(const char *reason
-          ,const As&... args) {
-
-    static ostd::String<256> formatted;
-    formatted = "";
-    ostd::fmt(formatted, reason, args...);
-
-    panic(formatted);
+    /// Initializes the console.
+    void init();
 }

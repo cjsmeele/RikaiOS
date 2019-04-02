@@ -26,11 +26,15 @@
 #include <os-std/math.hh>
 #include <os-std/bitset.hh>
 #include <os-std/string.hh>
+#include <os-std/literals.hh>
 
 // Internal headers.
+#include "common/asm.hh"
 #include "common/debug.hh"
 #include "common/panic.hh"
+#include "common/kprint.hh"
 
 // The ostd namespace is used throughout the kernel - this does not harm other
 // libraries and userspace code.
 using namespace ostd;
+using namespace ostd::literals;

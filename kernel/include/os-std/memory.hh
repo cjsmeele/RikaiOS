@@ -18,6 +18,8 @@
 
 namespace ostd {
 
+    constexpr inline size_t page_size = 4096; // 4K
+
     template<typename T>
     constexpr T *mem_set(T *s, const T &c, size_t n) {
         for (size_t i = 0; i < n; ++i)

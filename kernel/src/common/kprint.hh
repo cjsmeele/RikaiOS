@@ -14,20 +14,22 @@
  */
 #pragma once
 
-#include <os-std/fmt.hh>
+#include <os-std/types.hh>
 #include <os-std/string.hh>
 
-/// Reports an error condition and halts the machine (does not return).
-void panic(ostd::StringView reason = "");
+void kprint_char(char c);
+void kprint_init();
 
-/// Reports a formatted error condition and halts the machine (does not return).
-template<typename... As>
-void panic(const char *reason
-          ,const As&... args) {
+/// Print a string.
+inline void kprint(ostd::StringView str) {
+    for (char c : str)
+        kprint_char(c);
+}
 
-    static ostd::String<256> formatted;
-    formatted = "";
-    ostd::fmt(formatted, reason, args...);
+/// Print a formatted string.
+template<typename... Args>
+void kprint(ostd::StringView format
+           ,const Args&...   args) {
 
-    panic(formatted);
+    ostd::fmt(kprint_char, format, args...);
 }

@@ -14,20 +14,17 @@
  */
 #pragma once
 
-#include <os-std/fmt.hh>
-#include <os-std/string.hh>
+#include <os-std/types.hh>
 
-/// Reports an error condition and halts the machine (does not return).
-void panic(ostd::StringView reason = "");
-
-/// Reports a formatted error condition and halts the machine (does not return).
-template<typename... As>
-void panic(const char *reason
-          ,const As&... args) {
-
-    static ostd::String<256> formatted;
-    formatted = "";
-    ostd::fmt(formatted, reason, args...);
-
-    panic(formatted);
+/**
+ * Literals.
+ *
+ * This allows for clearer/shorter notation for big numbers.
+ * e.g. you can now write 16_MiB instead of 16*1024*1024.
+ */
+namespace ostd::literals {
+    u64 constexpr operator ""_KiB(u64 i) { return i * 1024;                      }
+    u64 constexpr operator ""_MiB(u64 i) { return i * 1024 * 1024;               }
+    u64 constexpr operator ""_GiB(u64 i) { return i * 1024 * 1024 * 1024;        }
+    u64 constexpr operator ""_TiB(u64 i) { return i * 1024 * 1024 * 1024 * 1024; }
 }

@@ -16,7 +16,6 @@
 
 #include <os-std/types.hh>
 #include <os-std/type-traits.hh>
-#include <os-std/array.hh>
 #include <os-std/memory.hh>
 #include <os-std/math.hh>
 
@@ -214,8 +213,8 @@ namespace ostd {
         ///@}
 
         /// Formatter for pointers.
-        template<typename F>
-        constexpr int format(F &print, Flags &f, void *a) {
+        template<typename F, typename T>
+        constexpr int format(F &print, Flags &f, const T *a) {
             f.radix        = 16;
             f.prefix_zero  = true;
             f.unsign       = true;

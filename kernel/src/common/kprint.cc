@@ -12,22 +12,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
+#include "kprint.hh"
+#include "../console/textmode.hh"
+#include "../console/serial.hh"
 
-#include <os-std/fmt.hh>
-#include <os-std/string.hh>
+using namespace ostd;
 
-/// Reports an error condition and halts the machine (does not return).
-void panic(ostd::StringView reason = "");
+void kprint_char(char c) {
+    // Try to print to whatever console is available.
 
-/// Reports a formatted error condition and halts the machine (does not return).
-template<typename... As>
-void panic(const char *reason
-          ,const As&... args) {
+    Console::TextMode::print_char(c);
+    Console::Serial  ::print_char(c);
+}
 
-    static ostd::String<256> formatted;
-    formatted = "";
-    ostd::fmt(formatted, reason, args...);
-
-    panic(formatted);
+void kprint_init() {
+    Console::TextMode::init();
+    Console::Serial  ::init();
 }
