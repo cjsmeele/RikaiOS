@@ -68,7 +68,7 @@ namespace Console::TextMode {
     static void clear_screen() {
         for (int y = 0; y < 25; ++y) {
             for (int x = 0; x < 80; ++x) {
-                ((volatile u16*)0xb8000)[y*80+x] = 0x0720;
+                ((volatile u16*)0xb8000)[y*80+x] = char_to_cell(' ');
             }
         }
 

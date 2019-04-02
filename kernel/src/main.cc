@@ -14,10 +14,8 @@
  */
 #include "common.hh"
 #include "boot/bootinfo.hh"
-#include "memory/gdt.hh"
-// #include "memory/manager-phy.hh"
-// #include "memory/manager-virt.hh"
-// #include "memory/kernel-heap.hh"
+#include "memory/memory.hh"
+#include "interrupts/interrupts.hh"
 
 /**
  * \file
@@ -28,9 +26,11 @@
 extern "C" void kmain(const boot_info_t &boot_info);
 extern "C" void kmain(const boot_info_t &boot_info) {
 
-    Gdt::init();
-
+    // Make sure we can write to the console.
     kprint_init();
+
+    Interrupts::init();
+    Memory::init();
 
     kprint("\neos-os is booting.\n");
     kprint("\nmemory map:\n");
