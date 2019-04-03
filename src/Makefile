@@ -60,14 +60,14 @@ QEMUFLAGS_DEBUG =                      \
     -display $(QEMU_DISPLAY)           \
     -S -gdb tcp::1133
 
-.PHONY: doc build rebuild boot kernel disk run debug qemu qemu-kvm bochs clean
+.PHONY: build doc rebuild boot kernel disk run debug qemu qemu-kvm bochs clean
 
 -include Makefile.local
 
+build: boot kernel
+
 doc:
 	$(Q)$(MAKE) -C kernel doc
-
-build: boot kernel
 
 rebuild:
 	$(Q)$(MAKE) -BC boot   all
