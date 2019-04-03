@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+docker run -a STDOUT -a STDERR --mount type=bind,source="$(pwd)/src",target="/src" eos-os $@
