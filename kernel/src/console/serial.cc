@@ -23,6 +23,9 @@ namespace Console::Serial {
     static u16 port_number = 0;
 
     static bool can_write() {
+        if (!port_number)
+            return false;
+
         // Read "Transmit Holding Register Empty" register.
         return Io::in_8(port_number + 5) & 0x20;
     }
@@ -47,13 +50,14 @@ namespace Console::Serial {
         if (port_number) {
             // Port number found, try to initialize the hardware.
 
-            Io::out_8(port_number + 1, 0x00); // Disable all interrupts
-            Io::out_8(port_number + 3, 0x80); // Enable DLAB
+            Io::out_8(port_number + 1, 0x01); // Enable Received Data Available interrupt
+            Io::out_8(port_number + 3, 0x80); // Enable DLAB to set baud rate
             Io::out_8(port_number + 0, 0x01); // Divisor LSB (115200 baud)
             Io::out_8(port_number + 1, 0x00); // Divisor MSB
             Io::out_8(port_number + 3, 0x03); // 8 bits, no parity, one stop bit
-            Io::out_8(port_number + 2, 0x07); // Enable & clear FIFO, with 14-byte threshold
-            Io::out_8(port_number + 4, 0x00); // Disable interrupts.
+            // Io::out_8(port_number + 2, 0x07); // enable & clear FIFOs, with 1-byte threshold
+            Io::out_8(port_number + 2, 0x06); // Disable & clear FIFOs
+            Io::out_8(port_number + 4, 0x08); // Enable aux2 pin for interrupts
         }
     }
 }

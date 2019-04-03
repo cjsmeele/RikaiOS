@@ -171,6 +171,13 @@ static void handle_irq(Interrupt::interrupt_frame_t &frame) {
         if (Io::in_8(0x60) == 1)
              kprint("ESC"), crash();
         else kprint("beep");
+    } else if (frame.int_no == 0x24) {
+        // Quick&Dirty crash on serial ESC.
+        while (Io::in_8(0x3f8 + 5) & 1) {
+            if (Io::in_8(0x3f8) == '\x1b')
+                 kprint("ESC"), crash();
+            else kprint("boop");
+        }
     } else {
         kprint("int{#02x} ", frame.int_no);
     }
