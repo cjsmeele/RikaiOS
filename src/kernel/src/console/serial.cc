@@ -55,7 +55,7 @@ namespace Console::Serial {
             Io::out_8(port_number + 0, 0x01); // Divisor LSB (115200 baud)
             Io::out_8(port_number + 1, 0x00); // Divisor MSB
             Io::out_8(port_number + 3, 0x03); // 8 bits, no parity, one stop bit
-            // Io::out_8(port_number + 2, 0x07); // enable & clear FIFOs, with 1-byte threshold
+            // Io::out_8(port_number + 2, 0x07); // Enable & clear FIFOs, with 1-byte threshold
             Io::out_8(port_number + 2, 0x06); // Disable & clear FIFOs
             Io::out_8(port_number + 4, 0x08); // Enable aux2 pin for interrupts
         }

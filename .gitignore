@@ -4,11 +4,3 @@
 *\#*
 *.swp
 Makefile.local
-
-# Files that are ignored in the root directory.
-
-/disk.img
-/disk.img.lock
-/bx_enh_dbg.ini
-/serial-out.bin
-/.gdb_history

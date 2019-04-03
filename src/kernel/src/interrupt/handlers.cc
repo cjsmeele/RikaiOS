@@ -142,6 +142,7 @@ StringView("Aaaaaand it's gone.")
           ,"Je kan altijd nog BIM doen."
           ,"Have you tried turning it off and on again?"
           ,"Try putting `sudo' in front."
+          ,"This is fine..."
     };
 
     // Panic with a register dump.
