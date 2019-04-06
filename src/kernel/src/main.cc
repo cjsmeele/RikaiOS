@@ -15,6 +15,7 @@
 #include "common.hh"
 #include "boot/bootinfo.hh"
 #include "memory/memory.hh"
+#include "memory/manager-physical.hh"
 #include "interrupt/interrupt.hh"
 
 /**
@@ -29,21 +30,10 @@ extern "C" void kmain(const boot_info_t &boot_info) {
     // Make sure we can write to the console.
     kprint_init();
 
+    kprint("\neos-os is booting.\n\n");
+
     Interrupt::init();
-    Memory::init();
-
-    kprint("\neos-os is booting.\n");
-    kprint("\nmemory map:\n");
-
-    for (size_t i = 0; i < boot_info.memory_region_count; ++i) {
-        auto &region = boot_info.memory_regions[i];
-        if (region.start < intmax<u32>::value) {
-            kprint("  {} - {}  {6S} free\n"
-                  ,(u8*)region.start
-                  ,(u8*)region.start + (region.size-1)
-                  ,region.size);
-        }
-    }
+    Memory::init(boot_info);
 
     kprint("\n(nothing to do - press ESC to crash and burn)\n\n");
 

@@ -62,13 +62,13 @@ You can debug the kernel with either QEMU or Bochs:
 
 **** QEMU/gdb
 
-See [[./gdbrc]] for startup options (you may override this file path in a ~Makefile.local~).
+See [[./src/gdbrc]] for startup options (you may override this file path in a ~Makefile.local~).
 
 : make disk && make debug
 
 **** Bochs
 
-See [[./bochsrc]] for configuration options (you may override this file path in a ~Makefile.local~).
+See [[./src/bochsrc]] for configuration options (you may override this file path in a ~Makefile.local~).
 
 : make disk && make bochs
 

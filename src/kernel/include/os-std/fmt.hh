@@ -137,7 +137,7 @@ namespace ostd {
                 if (scale == 4) size_char = 'T';
                 if (scale == 5) size_char = 'P';
                 if (scale == 6) size_char = 'E';
-                n /= pow((u32)1024, (u32)scale);
+                n /= pow((u64)1024, (u64)scale);
             }
 
             if (sign || f.explicit_sign) prefix_len += 1;
@@ -206,12 +206,14 @@ namespace ostd {
 
         /// \name Formatters for all numeric types.
         ///@{
-        template<typename F> constexpr int format(F &print, Flags &f,  s8 n) { return format(print, f, (s64)n); }
-        template<typename F> constexpr int format(F &print, Flags &f, s16 n) { return format(print, f, (s64)n); }
-        template<typename F> constexpr int format(F &print, Flags &f, s32 n) { return format(print, f, (s64)n); }
-        template<typename F> constexpr int format(F &print, Flags &f,  u8 n) { return format(print, f, (u64)n); }
-        template<typename F> constexpr int format(F &print, Flags &f, u16 n) { return format(print, f, (u64)n); }
-        template<typename F> constexpr int format(F &print, Flags &f, u32 n) { return format(print, f, (u64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f,    s8 n) { return format(print, f, (s64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f,   s16 n) { return format(print, f, (s64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f,   s32 n) { return format(print, f, (s64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f, sli32 n) { return format(print, f, (s64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f,    u8 n) { return format(print, f, (u64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f,   u16 n) { return format(print, f, (u64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f,   u32 n) { return format(print, f, (u64)n); }
+        template<typename F> constexpr int format(F &print, Flags &f, uli32 n) { return format(print, f, (u64)n); }
         ///@}
 
         /// Formatter for pointers.

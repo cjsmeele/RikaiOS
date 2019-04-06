@@ -12,14 +12,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
+#include "debug.hh"
+#include "panic.hh"
 
-#include "common.hh"
-
-namespace Interrupt {
-
-    void disable(); ///< Disables interrupts.
-    void enable();  ///< Enables interrupts.
-
-    void init();
+void do_assert(bool test, const char *error) {
+    if (!test)
+        panic("assertion failed:\n  {}\n", error);
 }

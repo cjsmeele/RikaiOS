@@ -38,3 +38,5 @@
 // libraries and userspace code.
 using namespace ostd;
 using namespace ostd::literals;
+
+#define UNIMPLEMENTED assert(0, "tried to use an unimplemented feature");

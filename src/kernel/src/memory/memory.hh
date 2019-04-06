@@ -15,7 +15,8 @@
 #pragma once
 
 #include "common.hh"
+#include "boot/bootinfo.hh"
 
 namespace Memory {
-    void init();
+    void init(const boot_info_t &info);
 }

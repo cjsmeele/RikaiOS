@@ -15,6 +15,7 @@
 #pragma once
 
 #include <os-std/types.hh>
+#include <os-std/type-traits.hh>
 
 /**
  * \file
@@ -86,6 +87,69 @@ namespace ostd {
     }
     template<typename N> [[nodiscard]] constexpr N bit_clear (N x, u8 i) { return bit_set(x, i, false); }
     template<typename N> [[nodiscard]] constexpr N bit_toggle(N x, u8 i) { return x ^= 1 << i;          }
+    template<typename N> [[nodiscard]] constexpr N bit_set_range(N x, u8 i, u8 count, bool val) {
+        using U = typename add_unsigned<N>::type;
+        U y(x);
+        auto max = intmax<U>::value;
+        return val
+            ? y |   U(max) >> (sizeof(U)*8-count) << i
+            : y & ~(U(max) >> (sizeof(U)*8-count) << i);
+    }
     ///@}
 
+    /**
+     * \name Bit analysis functions.
+     *
+     * These functions make use of compiler builtins that translate to
+     * specialized x86 instructions such as LZCNT to efficiently count the
+     * number of leading / trailing zeroes or ones in a word.
+     *
+     * These builtins are supported by both GCC and Clang.
+     */
+    ///@{
+#ifdef __GNUC__
+    constexpr u8 clz_(u32 x) { return __builtin_clz(x); }
+    constexpr u8 ctz_(u32 x) { return __builtin_ctz(x); }
+#else
+    #error "Need a LZCNT / CLZ and CTZ implementation since this is not GCC/Clang"
+#endif
+    template<typename N>
+    constexpr u8 count_leading_0s(N x) {
+        constexpr auto nbits = sizeof(N) * 8;
+        if (!x) return nbits;
+        static_assert(clz_(u32{         1}) == 31, "builtin clz does not work for 32-bit numbers");
+        static_assert(clz_(u32{0xffffffff}) ==  0, "builtin clz does not work for 32-bit numbers");
+        if constexpr (nbits == 64) {
+            if (x >> 32) return clz_((u32)(x >> 32));
+            else         return clz_((u32)x) + 32;
+        } else if constexpr (nbits < 32) {
+            return clz_((u32)x) - (32 - nbits);
+        } else {
+            return clz_(x);
+        }
+    }
+
+    template<typename N>
+    constexpr u8 count_leading_1s(N x) {
+        return count_leading_0s(static_cast<N>(~x));
+    }
+
+    template<typename N>
+    constexpr u8 count_trailing_0s(N x) {
+        constexpr auto nbits = sizeof(N) * 8;
+        if (!x) return nbits;
+        static_assert(ctz_(u32{         1}) ==  0, "builtin ctz does not work for 32-bit numbers");
+        static_assert(ctz_(u32{0x80000000}) == 31, "builtin ctz does not work for 32-bit numbers");
+        if constexpr (nbits == 64) {
+            if ((u32)x) return ctz_((u32)x);
+            else        return ctz_((u32)(x >> 32)) + 32;
+        } else {
+            return ctz_(x);
+        }
+    }
+    template<typename N>
+    constexpr u8 count_trailing_1s(N x) {
+        return count_trailing_0s(static_cast<N>(~x));
+    }
+    ///@}
 }

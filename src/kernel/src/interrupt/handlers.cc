@@ -15,6 +15,7 @@
 #include "handlers.hh"
 #include "controller.hh"
 #include "../memory/gdt.hh"
+#include "../debug-keys.hh"
 
 /**
  * \file
@@ -137,8 +138,6 @@ StringView("Aaaaaand it's gone.")
           ,"Abort, Retry, Fail?"
           ,"Set phasers to kill -9."
           ,"You've been terminated."
-          ,"Segmentation fault (core dumped)"
-          ,"Permission denied (publickey)"
           ,"Je kan altijd nog BIM doen."
           ,"Have you tried turning it off and on again?"
           ,"Try putting `sudo' in front."
@@ -167,18 +166,23 @@ static void handle_irq(Interrupt::interrupt_frame_t &frame) {
     if (frame.int_no == 0x20) {
         // PIT Timer tick.
         ticks++;
-    } else if (frame.int_no == 0x21) {
-        // Quick&Dirty crash on keyboard ESC.
-        if (Io::in_8(0x60) == 1)
-             kprint("ESC"), crash();
-        else kprint("beep");
-    } else if (frame.int_no == 0x24) {
-        // Quick&Dirty crash on serial ESC.
-        while (Io::in_8(0x3f8 + 5) & 1) {
-            if (Io::in_8(0x3f8) == '\x1b')
-                 kprint("ESC"), crash();
-            else kprint("boop");
+    } else if (frame.int_no == 0x21 || frame.int_no == 0x24) {
+        char ch = 0;
+        if (frame.int_no == 0x21) {
+            // Handle keyboard input.
+            u8 sc = Io::in_8(0x60);
+                   if (sc ==  1)             { ch = '\x1b'; // escape
+            } else if (sc == 11)             { ch = '0';
+            } else if (sc >=  2 && sc <= 10) { ch = '0' + (sc-1);
+            } else {
+                // kprint("scancode: {} ", (u8)ch);
+            }
+        } else if (frame.int_no == 0x24) {
+            // Handle serial line input.
+            ch = Io::in_8(0x3f8);
         }
+        handle_debug_key(ch);
+
     } else {
         kprint("int{#02x} ", frame.int_no);
     }

@@ -16,10 +16,5 @@
 
 #include "common.hh"
 
-namespace Interrupt {
-
-    void disable(); ///< Disables interrupts.
-    void enable();  ///< Enables interrupts.
-
-    void init();
-}
+/// Allows accessing kernel debug functions using the keyboard or serial input.
+void handle_debug_key(char ch);

@@ -20,9 +20,9 @@
 
 namespace Memory {
 
-    void init() {
+    void init(const boot_info_t &info) {
         Gdt     ::init();
-        Physical::init();
+        Physical::init(info);
         Virtual ::init();
         Heap    ::init();
     }

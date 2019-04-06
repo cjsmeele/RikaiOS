@@ -18,6 +18,14 @@
 
 namespace Interrupt {
 
+    void disable() {
+        asm_cli();
+    }
+
+    void enable()  {
+        asm_sti();
+    }
+
     void init() {
         Controller::init();
         Idt::init();

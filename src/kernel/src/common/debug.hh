@@ -37,4 +37,27 @@
                                                        , "b" (u32(x))     \
                                                        , "c" (u32(y))     \
                                                        , "d" (u32(z)))
-///}@
+///@}
+
+/**
+ * \name Assertion macro
+ *
+ * Causes a kernel panic when a given condition is not fulfilled.
+ *
+ * Usage:
+ *
+ *     assert(1 > 0, "math is broken!");
+ *
+ * (the C macros below are needed in order to insert the source file name and
+ * line number into the error message)
+ */
+///@{
+
+void do_assert(bool test, const char *error);
+
+#define STRINGIFY2(x) #x
+#define STRINGIFY(x) STRINGIFY2(x)
+#define assert(expr, err) \
+    do_assert((expr), __FILE__ ":" STRINGIFY(__LINE__) ": { " #expr " } - " err)
+
+///@}
