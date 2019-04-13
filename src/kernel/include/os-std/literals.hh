@@ -17,6 +17,8 @@
 #include <os-std/types.hh>
 
 /**
+ * \namespace ostd::literals
+ *
  * Literals.
  *
  * This allows for clearer/shorter notation for big numbers.
@@ -27,4 +29,8 @@ namespace ostd::literals {
     u64 constexpr operator ""_MiB(u64 i) { return i * 1024 * 1024;               }
     u64 constexpr operator ""_GiB(u64 i) { return i * 1024 * 1024 * 1024;        }
     u64 constexpr operator ""_TiB(u64 i) { return i * 1024 * 1024 * 1024 * 1024; }
+    u64 constexpr operator ""_K  (u64 i) { return i * 1024;                      }
+    u64 constexpr operator ""_M  (u64 i) { return i * 1024 * 1024;               }
+    u64 constexpr operator ""_G  (u64 i) { return i * 1024 * 1024 * 1024;        }
+    u64 constexpr operator ""_T  (u64 i) { return i * 1024 * 1024 * 1024 * 1024; }
 }

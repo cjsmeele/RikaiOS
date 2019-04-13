@@ -15,6 +15,8 @@
 #include "debug-keys.hh"
 #include "interrupt/interrupt.hh"
 #include "memory/manager-physical.hh"
+#include "memory/manager-virtual.hh"
+#include "memory/kernel-heap.hh"
 
 void handle_debug_key(char ch) {
          if (ch == '\x1b') kprint("ESC"), crash();
@@ -22,8 +24,8 @@ void handle_debug_key(char ch) {
     else if (ch == '2')    Memory::Physical::dump_bitmap();
     else if (ch == '3')    kprint("boop");
     else if (ch == '4')    kprint("boop");
-    else if (ch == '5')    kprint("boop");
-    else if (ch == '6')    kprint("boop");
+    else if (ch == '5')    Memory::Heap::dump_stats();
+    else if (ch == '6')    Memory::Heap::dump_all();
     else if (ch == '7')    kprint("boop");
     else if (ch == '8')    kprint("boop");
     else if (ch == '9')    kprint("boop");

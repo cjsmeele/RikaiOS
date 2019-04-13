@@ -15,12 +15,11 @@
 #pragma once
 
 #include "common.hh"
-#include "boot/bootinfo.hh"
-#include "region.hh"
+#include "frame.hh"
 
-/// Memory management.
-namespace Memory {
+namespace Interrupt {
 
-    /// Initializes memory management.
-    void init(const boot_info_t &info);
+    /// Handler for bad memory accesses.
+    /// This may be used to implement CoW or lazy allocations, for example.
+    bool handle_pagefault(interrupt_frame_t &frame);
 }

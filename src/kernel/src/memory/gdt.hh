@@ -16,7 +16,11 @@
 
 #include "common.hh"
 
-/// Global Descriptor Table - handles memory segmentation.
+/**
+ * \namespace Memory::Gdt
+ *
+ * Global Descriptor Table - handles memory segmentation.
+ */
 namespace Memory::Gdt {
     /// Indices into the GDT.
     enum {

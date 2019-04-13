@@ -20,13 +20,8 @@
 /// (they may add additional functionality when included in userspace code)
 #define KERNELSPACE
 
-// Headers shared between kernel/userspace.
-#include <os-std/types.hh>
-#include <os-std/memory.hh>
-#include <os-std/math.hh>
-#include <os-std/bitset.hh>
-#include <os-std/string.hh>
-#include <os-std/literals.hh>
+// The os standard library.
+#include <os-std/ostd.hh>
 
 // Internal headers.
 #include "common/asm.hh"

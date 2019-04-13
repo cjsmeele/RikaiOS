@@ -18,6 +18,8 @@
 #include "boot/bootinfo.hh"
 
 /**
+ * \namespace Memory::Physical
+ *
  * Physical memory manager.
  *
  * The physical memory manager is responsible for allocating and freeing
@@ -49,18 +51,6 @@ namespace Memory::Physical {
 
     /// Frees one page.
     void free_one(size_t page_no);
-
-    /**
-     * Tries to allocate n_pages of contiguous memory.
-     *
-     * If successful, returns the starting page number. Otherwise, returns 0.
-     * (the memory manager will never allow allocations in the first 1 MiB, so
-     * 0 is never a valid page number)
-     */
-    [[nodiscard]] size_t allocate(size_t n_pages);
-
-    /// Free n_pages starting at page_no.
-    void free(size_t page_no, size_t n_pages);
 
     /// Initialises the memory manager using memory information from the
     /// boot info struct.

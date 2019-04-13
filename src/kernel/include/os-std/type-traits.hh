@@ -52,6 +52,8 @@ namespace ostd {
 
     template<typename T> struct is_reference            { static constexpr bool value = false; };
     template<typename T> struct is_reference<T&>        { static constexpr bool value = true;  };
+    template<typename T> struct is_rref                 { static constexpr bool value = false; };
+    template<typename T> struct is_rref<T&&>            { static constexpr bool value = true;  };
 
     template<typename T> struct is_pointer              { static constexpr bool value = false; };
     template<typename T> struct is_pointer<T*>          { static constexpr bool value = true;  };
@@ -86,9 +88,13 @@ namespace ostd {
     template<typename T> struct remove_cv
         { using type = typename remove_volatile<typename remove_const<T>::type>::type; };
 
+    template<typename T> struct remove_ptr                  { using type = T; };
+    template<typename T> struct remove_ptr<T*>              { using type = T; };
     template<typename T> struct remove_ref                  { using type = T; };
     template<typename T> struct remove_ref<T&>              { using type = T; };
     template<typename T> struct remove_ref<T&&>             { using type = T; };
+    template<typename T> struct remove_rref                 { using type = T; };
+    template<typename T> struct remove_rref<T&&>            { using type = T; };
 
     template<typename T>
     using remove_cvref = remove_ref<typename remove_cv<T>::type>;
@@ -110,6 +116,8 @@ namespace ostd {
 
     template<bool, typename T> struct enable_if             { };
     template<typename T>       struct enable_if<true, T>    { using type = T; };
+    template<bool, typename T> struct disable_if            { };
+    template<typename T>       struct disable_if<false, T>  { using type = T; };
 
     template<typename T> T declval_v();
     template<typename T> typename add_rref<T>::type declval();
@@ -174,6 +182,10 @@ namespace ostd {
     template<typename T>
     constexpr typename remove_ref<T>::type&& move(T &&x) {
         return static_cast<typename remove_ref<T>::type&&>(x);
+    }
+    template<typename T>
+    constexpr T&& forward(T &&x) {
+        return static_cast<T&&>(x);
     }
 
     template<typename T>

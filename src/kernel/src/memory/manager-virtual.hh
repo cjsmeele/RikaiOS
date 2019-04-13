@@ -16,7 +16,88 @@
 
 #include "common.hh"
 
+/**
+ * \namespace Memory::Virtual
+ *
+ * Virtual memory management (paging).
+ *
+ * We want to:
+ *
+ * - Allow processes to run on predictable addresses
+ * - Prevent processes from interfering in eachother's memory
+ * - Give processes limited access to the kernel
+ * - Prevent memory fragmentation
+ *
+ * Paging to the rescue!
+ *
+ * We divide physical memory into 4KiB pages, and hand these out to the kernel
+ * and user-mode processes when needed.
+ * Every process gets its own address space, where every 4KiB chunk of virtual
+ * memory may or may not be backed by actual physical memory.
+ *
+ * In order to allow processes to cheaply make requests to the kernel, we make
+ * sure that all (physical) kernel memory is present in every address space.
+ *
+ * For example, when 3 processes are running, there will be three separate
+ * address spaces like this, where every process sees only itself and the kernel:
+ *
+ *       Address space A          Address space B          Address space C
+ *     ┌─────────────────┐ 0M   ┌─────────────────┐ 0M   ┌─────────────────┐ 0M
+ *     ├─────────────────┤ 1M   ├─────────────────┤ 1M   ├─────────────────┤ 1M
+ *     │ kernel code     │      │ kernel code     │      │ kernel code     │
+ *     │ kernel data     │      │ kernel data     │      │ kernel data     │
+ *     │ kernel stack    │      │ kernel stack    │      │ kernel stack    │
+ *     │ kernel heap     │      │ kernel heap     │      │ kernel heap     │
+ *     ├─────────────────┤ 3G   ├─────────────────┤ 3G   ├─────────────────┤ 3G
+ *     │ proc A code     │      │ proc B code     │      │ proc C code     │
+ *     │ proc A data     │      │ proc B data     │      │ proc C data     │
+ *     │ proc A heap     │      │ proc B heap     │      │ proc C heap     │
+ *     │ proc A stack    │      │ proc B stack    │      │ proc C stack    │
+ *     ├─────────────────┤ ?    ├─────────────────┤ ?    ├─────────────────┤ ?
+ *     └─────────────────┘ 4G   └─────────────────┘ 4G   └─────────────────┘ 4G
+ *
+ * (things get more interesting when we let processes share memory with eachother)
+ *
+ * \todo document paging structures.
+ */
 namespace Memory::Virtual {
 
+    /**
+     * \name Paging structures
+     *
+     *@{
+     */
+
+    using pde_t = u32; /// A page directory entry is a 32-bit bitfield.
+    using pte_t = u32; /// A page table entry is a 32-bit bitfield.
+
+    /**
+     * \name Flags that indicate access rights on a page of memory.
+     *
+     * These are valid for both pages and entire page tables.
+     *
+     *@{
+     */
+    constexpr u32 flag_present  = 1 << 0;
+    constexpr u32 flag_writable = 1 << 1;
+    constexpr u32 flag_user     = 1 << 2; ///< Accessible from user-mode?
+    ///@}
+
+    // Note: alignas is not valid on type aliases (why?).
+    //       the gcc-/clang specific aligned attribute works, but generates a
+    //       warning when this type is used in a container.
+    //       so we resort to requiring instantiations to be marked alignas() instead.
+
+    using PageDir = Array<pde_t,1024>;
+    using PageTab = Array<pte_t,1024>;
+    ///@}
+
+    /// note: virt and size must be page-aligned.
+    bool map(addr_t virt, addr_t phy, size_t size, u32 flags);
+
+    /// note: virt and size must be page-aligned.
+    void unmap(addr_t virt, size_t size);
+
+    /// Initialises the memory manager.
     void init();
 }

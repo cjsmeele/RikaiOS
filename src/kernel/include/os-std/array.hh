@@ -16,6 +16,7 @@
 
 #include <os-std/memory.hh>
 #include <os-std/fmt.hh>
+#include <os-std/container.hh>
 
 namespace ostd {
 
@@ -44,6 +45,27 @@ namespace ostd {
         constexpr       T &operator[](size_t i)       { return data_[i]; }
         ///@}
 
+        /// \name Comparison operators.
+        ///@{
+        template<typename OT, size_t ON>
+        constexpr bool operator==(const Array<OT,ON> &o) const {
+            if constexpr (ON != N) {
+                return false;
+            } else {
+                for (auto [x,y] : zip(*this, o)) {
+                    if (x != y)
+                        return false;
+                }
+                return true;
+            }
+        }
+
+        template<typename OT, size_t ON>
+        constexpr bool operator!=(const Array<OT,ON> &o) const {
+            return !(*this == o);
+        }
+        ///@}
+
         /** \name Iterator-ish functions.
          *
          * These enable the use of range-based for-loops (`for (x : y)`).
@@ -65,9 +87,9 @@ namespace ostd {
             mem_copy(data_, data, N2);
         }
 
-        template<typename... Ts>
-        constexpr Array(const Ts&... args)
-            : data_{args...} { }
+        template<typename T1, typename... Ts>
+        constexpr Array(const T1 &arg, const Ts&... args)
+            : data_{arg, args...} { }
     };
 
     template<typename T, typename... Ts>

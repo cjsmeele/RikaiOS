@@ -15,7 +15,7 @@
 #include "common.hh"
 #include "boot/bootinfo.hh"
 #include "memory/memory.hh"
-#include "memory/manager-physical.hh"
+#include "memory/kernel-heap.hh"
 #include "interrupt/interrupt.hh"
 
 /**
@@ -43,6 +43,40 @@ extern "C" void kmain(const boot_info_t &boot_info) {
     Io::out_8(0x40, (1*1193) >> 8);
 
     Interrupt::enable();
+
+    struct alloc_t { u8 *p; size_t sz; };
+    Array<alloc_t, 100> allocs;
+
+    for (int i = 0; i < 10000; ++i) {
+
+        kprint("{20~} {} {20~}\n", '~', i, '~');
+
+        auto &[a, sz] = allocs[rand()%100];
+
+        if (a) {
+            for (ssize_t j = sz-1; j >= 0; --j) {
+                if (a[j] != (j&0xff))
+                    panic("corrupt!");
+            }
+            mem_set(a, u8(0xcc), sz);
+            Memory::Heap::free(a);
+            a  = 0;
+            sz = 0;
+        } else {
+            // size_t al = 1 << rand()%14;
+            size_t al = 1 << rand()%5;
+            sz = rand()%5000;
+            a  = (u8*)Memory::Heap::alloc(sz, al);
+            // kprint("{}:{}@{}\n", sz, al, a);
+            if (!a)
+                panic("OOM");
+            for (ssize_t j = sz-1; j >= 0; --j)
+                a[j] = j&0xff;
+        }
+
+        // Memory::Heap::dump_all();
+    }
+
     for (int i = 0;; ++i) {
         if (i % 50 == 0) kprint(".");
         asm_hlt();

@@ -106,23 +106,6 @@ namespace Memory::Physical {
             first_free_page = page_no;
     }
 
-    size_t allocate(size_t) {
-        /// \todo Allow efficient allocation of multiple pages at once?
-
-        UNIMPLEMENTED
-
-        return 0;
-    }
-
-    void free(size_t page_no, size_t n_pages) {
-        bitmap.set_range(page_no, n_pages, 1);
-        total_pages_used_ -= n_pages;
-        total_pages_free_ += n_pages;
-
-        if (page_no < first_free_page)
-            first_free_page = page_no;
-    }
-
     void dump_bitmap() {
         kprint("\nphysical memory bitmap:\n{}\n", bitmap);
     }
@@ -178,7 +161,7 @@ namespace Memory::Physical {
 
     void init(const boot_info_t &boot_info) {
 
-        kprint("memory map:\n");
+        kprint("physical memory map:\n");
 
         // Start out assuming all memory is reserved.
         total_pages_reserved_ = intmax<size_t>::value;

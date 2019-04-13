@@ -26,7 +26,7 @@ else
 endif
 
 QEMU     = qemu-system-i386
-QEMU_KVM = qemu-system-x86_64 -enable-kvm
+QEMU_KVM = qemu-system-x86_64 -enable-kvm -cpu max
 BOCHS    = bochs
 GDB      = gdb
 

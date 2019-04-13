@@ -16,7 +16,21 @@
 
 #include "common.hh"
 
+/**
+ * \namespace Memory::Heap
+ *
+ * Kernel Heap: A memory allocator for the kernel.
+ *
+ * This allocator is cheap, in the "you get what you pay for" sense. :^)
+ */
 namespace Memory::Heap {
+
+    void dump_stats();
+    void dump_all();
+
+    [[nodiscard]]
+    void *alloc(size_t size, size_t align);
+    void  free(void *p);
 
     void init();
 }

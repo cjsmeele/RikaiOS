@@ -51,7 +51,11 @@ SECTIONS {
         KERNEL_BSS_END = .;
     }
 
+    /* Align heap on page boundary. */
+    KERNEL_HEAP_START = ALIGN(0x1000);
+
     /DISCARD/ : {
         *(.comment)
+        *(.eh_frame)
     }
 }

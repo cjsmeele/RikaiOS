@@ -61,3 +61,6 @@ void do_assert(bool test, const char *error);
     do_assert((expr), __FILE__ ":" STRINGIFY(__LINE__) ": { " #expr " } - " err)
 
 ///@}
+
+/// A PRNG, useful for testing functions with semi-random arguments.
+int rand();

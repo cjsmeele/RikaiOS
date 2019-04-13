@@ -19,6 +19,7 @@
 #include <os-std/array.hh>
 #include <os-std/string.hh>
 #include <os-std/fmt.hh>
+#include <os-std/container.hh>
 
 namespace ostd {
 

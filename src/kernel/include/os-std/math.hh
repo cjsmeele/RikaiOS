@@ -66,6 +66,12 @@ namespace ostd {
         else      return x / y;
     }
 
+    template<typename N, typename M> constexpr N align_up(N x, M y) {
+             if (y == 0) return x;
+        else if (x % y)  return x + (y - x % y);
+        else             return x;
+    }
+
     template<typename N> constexpr bool is_even(N x) { return (x & 1) == 0; }
     template<typename N> constexpr bool is_odd (N x) { return (x & 1) == 1; }
     template<typename N
@@ -95,6 +101,13 @@ namespace ostd {
             ? y |   U(max) >> (sizeof(U)*8-count) << i
             : y & ~(U(max) >> (sizeof(U)*8-count) << i);
     }
+    template<typename N> constexpr N bit_get_range(N x, u8 i, u8 count) {
+        using U = typename add_unsigned<N>::type;
+        U y(x);
+        auto max = intmax<U>::max();
+        int tmp = sizeof(U)*8 - count - i;
+        return (x << tmp & max) >> (tmp+i);
+    }
     ///@}
 
     /**
@@ -108,11 +121,27 @@ namespace ostd {
      */
     ///@{
 #ifdef __GNUC__
-    constexpr u8 clz_(u32 x) { return __builtin_clz(x); }
-    constexpr u8 ctz_(u32 x) { return __builtin_ctz(x); }
+    constexpr u8    clz_(u32 x) { return __builtin_clz(x);      }
+    constexpr u8    ctz_(u32 x) { return __builtin_ctz(x);      }
+    constexpr u8 popcnt_(u32 x) { return __builtin_popcount(x); }
 #else
-    #error "Need a LZCNT / CLZ and CTZ implementation since this is not GCC/Clang"
+    #error "Need a LZCNT / CLZ, CTZ, POPCNT implementation since this is not GCC/Clang"
 #endif
+
+    template<typename N>
+    constexpr u8 bit_count(N x) {
+        constexpr auto nbits = sizeof(N) * 8;
+        static_assert(popcnt_(u32{0xffff0001}) == 17
+                      , "builtin popcount does not work for 32-bit numbers");
+
+        if constexpr (nbits == 64) {
+            return popcnt_(x >> 32)
+                 + popcnt_((u32)x);
+        } else {
+            return popcnt_(x);
+        }
+    }
+
     template<typename N>
     constexpr u8 count_leading_0s(N x) {
         constexpr auto nbits = sizeof(N) * 8;

@@ -29,10 +29,12 @@ using s8  = signed char;
 using size_t    = u32;
 using ssize_t   = s32;
 using ptrdiff_t = s32;
+using addr_t    = u32;
 
 // gcc considers these differently from u32/s32 in overloads, clang doesn't.
 using uli32 = unsigned long int;
 using sli32 =   signed long int;
 
-static_assert(sizeof(uli32) == sizeof(u32));
-static_assert(sizeof(sli32) == sizeof(s32));
+static_assert(sizeof(uli32)  == sizeof(u32));
+static_assert(sizeof(sli32)  == sizeof(s32));
+static_assert(sizeof(addr_t) == sizeof(void*));

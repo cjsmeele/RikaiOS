@@ -28,10 +28,35 @@ namespace ostd {
     }
 
     template<typename T>
-    constexpr T *mem_copy(T *dst, const T *src, size_t n) {
+    constexpr T *mem_copy(T *dst, const T *src, size_t n = 1) {
         for (size_t i = 0; i < n; ++i)
             dst[i] = src[i];
         return dst;
+    }
+
+    template<typename T>
+    constexpr T *mem_move(T *dst_, const T *src_, size_t n = 1) {
+        u8 *dst = (u8*)dst_;
+        u8 *src = (u8*)src_;
+        n = n * sizeof(T);
+
+        if (dst < src) {
+            for (size_t i = 0; i < n; ++i)
+                dst[i] = src[i];
+        } else {
+            for (size_t i = 0; i < n; ++i)
+                dst[n - i - 1] = src[n - i - 1];
+        }
+        return dst_;
+    }
+
+    template<typename T>
+    constexpr bool mem_eq(const T *x, const T *y, size_t n = 1) {
+        for (size_t i = 0; i < n; i++) {
+            if (x[i] != y[i])
+                return false;
+        }
+        return true;
     }
 
     constexpr size_t str_length(const char *s) {

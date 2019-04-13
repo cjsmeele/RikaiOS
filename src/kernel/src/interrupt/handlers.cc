@@ -14,6 +14,7 @@
  */
 #include "handlers.hh"
 #include "controller.hh"
+#include "page-fault.hh"
 #include "../memory/gdt.hh"
 #include "../debug-keys.hh"
 
@@ -144,6 +145,11 @@ StringView("Aaaaaand it's gone.")
           ,"This is fine..."
     };
 
+    // See if we can handle page faults in a non-fatal way.
+    if (frame.int_no == 0x0e && handle_pagefault(frame))
+        // Ok!
+        return;
+
     // Panic with a register dump.
     panic("{#02x}:{#08x} - {}\n\n{}\n{}\n"
          ,frame.int_no
@@ -152,7 +158,7 @@ StringView("Aaaaaand it's gone.")
             ? exception_names[frame.int_no]
             : "???"
          ,frame
-         ,quotes[ticks%quotes.size()]);
+         ,quotes[rand()%quotes.size()]);
 }
 
 /**
@@ -172,7 +178,7 @@ static void handle_irq(Interrupt::interrupt_frame_t &frame) {
             // Handle keyboard input.
             u8 sc = Io::in_8(0x60);
                    if (sc ==  1)             { ch = '\x1b'; // escape
-            } else if (sc == 11)             { ch = '0';
+            } else if (sc == 11)             { ch = '0';    // number row
             } else if (sc >=  2 && sc <= 10) { ch = '0' + (sc-1);
             } else {
                 // kprint("scancode: {} ", (u8)ch);

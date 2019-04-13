@@ -22,20 +22,43 @@
 /**
  * \file
  * String formatting library.
- *
- * fmt takes a format string, containing zero or more bracketed blocks (`{}`),
- * and any number of other arguments. It then parses the blocks for formatting
- * options and prints the arguments in order, each with their own applied
- * formatting options.
- *
- * fmt is recursive, but recursion depth is bounded by the number of arguments
- * passed to it. As such, its max recursion depth is known at compile-time.
- *
- * \todo Expand documentation (examples).
  */
 
 namespace ostd {
 
+    /**
+     * \namespace ostd::Format
+     *
+     * String formatting library.
+     *
+     * fmt takes a format string, containing zero or more bracketed blocks (`{}`),
+     * and any number of other arguments. It then parses the blocks for formatting
+     * options and, using a callback mechanism, prints the arguments in order,
+     * each with their own applied formatting options.
+     *
+     * Format functions may be written for any user-made type. For an example,
+     * see array.hh for a formatting function for the Array type.
+     *
+     * fmt is recursive, but recursion depth is bounded by the number of arguments
+     * passed to it. As such, its max recursion depth is known at compile-time.
+     *
+     * Examples:
+     *
+     *     void print(const char *s) {
+     *         std::cout << s;
+     *     }
+     *
+     *     fmt(print, "Hello, {}!\n", "world");
+     *
+     *     => Hello, world!
+     *     
+     *     fmt(print, "These fields are padded and aligned:\n"
+     *                "| {-6} | {6} | {06} | {6x} | {#04x} |\n"
+     *              , "left", "right", 42, 123, 123);
+     *
+     *     => These fields are padded and aligned:
+     *     => | left   |  right | 000042 |     7b | 0x007b |
+     */
     namespace Format {
 
         /**
@@ -383,7 +406,10 @@ namespace ostd {
      * \return the amount of characters written
      */
     template<typename F, typename... As>
-    constexpr int fmt(F &print, const char *s, const As&... args) {
+    constexpr int fmt(F &print
+                     ,const char *s
+                     ,const As&... args) {
+
         // Is this callback sophisticated enough?
         if constexpr (is_callable<F,char>::value
                    && is_callable<F,const char*>::value) {
@@ -415,7 +441,10 @@ namespace ostd {
      * \return the amount of characters written
      */
     template<typename F, typename... As>
-    constexpr int fmt(F &&print, const char *s, const As&... args) {
+    constexpr int fmt(F &&print
+                     ,const char *s
+                     ,const As&... args) {
+
         F p2(print); return fmt(p2, s, args...);
     }
 
@@ -428,7 +457,11 @@ namespace ostd {
      * \return the amount of characters written
      */
     template<typename... As>
-    constexpr int fmt(char *dest, size_t dest_size, const char *s, const As&... args) {
+    constexpr int fmt(char *dest
+                     ,size_t dest_size
+                     ,const char *s
+                     ,const As&... args) {
+
         if constexpr (sizeof...(As) > 0) {
             auto sp = Format::StringPrinter{dest, dest_size};
             return fmt(sp, s, args...);

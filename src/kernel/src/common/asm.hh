@@ -53,9 +53,34 @@ inline u32  asm_cr2() { u32 x; asm volatile ("mov %%cr2, %0"  : "=a"(x)); return
 inline u32  asm_cr3() { u32 x; asm volatile ("mov %%cr3, %0"  : "=a"(x)); return x; }
 inline u32  asm_cr4() { u32 x; asm volatile ("mov %%cr4, %0"  : "=a"(x)); return x; }
 
+inline void asm_cr0(u32 x) {   asm volatile ("mov %0, %%cr0" :: "b" (x) : "memory" ); }
 inline void asm_cr3(u32 x) {   asm volatile ("mov %0, %%cr3" :: "b" (x) : "memory" ); }
 inline void asm_cr4(u32 x) {   asm volatile ("mov %0, %%cr4" :: "b" (x) : "memory" ); }
 ///@}
+
+inline u64  asm_rdtsc()   { u32 hi, lo;
+                            asm volatile ("rdtsc" : "=d" (hi), "=a"(lo));
+                            return ((u64)hi << 32) | lo; }
+inline u32  asm_rdtsc32() { u32 x;
+                            asm volatile ("rdtsc" : "=a"(x) :: "rdx");
+                            return x; }
+inline u64  asm_rdtsc64() { return asm_rdtsc(); }
+
+inline u32  asm_rdrand() {
+    // (this unfortunately only works on fairly modern processors,
+    //  qemu and bochs don't support it by default)
+    u32 r;
+    asm volatile ("1:  \
+                \n rdrand %%eax \
+                \n jnc 1"
+                 :"=a" (r)
+                ::"cc");
+    return r;
+}
+
+inline void asm_invlpg(addr_t x) {
+    asm volatile ("invlpg (%0)" :: "a" (x) : "memory");
+}
 
 /// Do nothing for n cycles (unreliable).
 inline void spin(u64 n) { for (u64 i = 0; i < n; ++i) asm volatile ("nop"); }
