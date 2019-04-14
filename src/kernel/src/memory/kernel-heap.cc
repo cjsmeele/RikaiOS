@@ -16,6 +16,8 @@
 #include "manager-virtual.hh"
 #include "layout.hh"
 
+// See kernel-heap.hh for an overview of how this works.
+
 /// Magic marker that indicates the end of the kernel image and the start of the heap.
 /// This address is page-aligned.
 extern int KERNEL_HEAP_START;

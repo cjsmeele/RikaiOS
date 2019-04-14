@@ -47,7 +47,7 @@ extern "C" void kmain(const boot_info_t &boot_info) {
     struct alloc_t { u8 *p; size_t sz; };
     Array<alloc_t, 100> allocs;
 
-    for (int i = 0; i < 10000; ++i) {
+    for (int i = 0; i < 1000; ++i) {
 
         kprint("{20~} {} {20~}\n", '~', i, '~');
 

@@ -217,12 +217,13 @@ extern "C" void common_interrupt_handler(Interrupt::interrupt_frame_t &frame) {
     if (frame.int_no < 0x20) {
         handle_exception(frame);
     } else if (frame.int_no < 0x40) {
+        // Hardware interrupts must be acknowledged.
+        Controller::acknowledge_interrupt(frame.int_no);
+
         handle_irq(frame);
     } else {
         handle_syscall(frame);
     }
-
-    Controller::acknowledge_interrupt(frame.int_no);
 }
 
 namespace Interrupt::Handler {
