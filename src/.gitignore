@@ -2,6 +2,9 @@
 
 /disk.img
 /disk.img.lock
+/disk.vdi
+/disk.qcow
+/disk.vmdk
 /bx_enh_dbg.ini
 /serial-out.bin
 /.gdb_history

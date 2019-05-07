@@ -54,14 +54,18 @@ namespace ostd {
     template<typename T>
     struct Enumerator {
 
-        T &container;
-
         /// Iterator type of the underlying container.
-        using it_t = decltype(ostd::begin(container));
+        ///@{
+        using itb_t = decltype(ostd::begin(*(T*)0));
+        using ite_t = decltype(ostd::end  (*(T*)0));
+        ///@}
+
+        itb_t begin_;
+        ite_t end_;
 
         /// Return type of iterator's deref operator.
         /// (usually a reference to an element)
-        using el_t = decltype(*declval<it_t>());
+        using el_t = decltype(*declval<itb_t>());
 
         /// The {index,value} pair that is returned on each iteration.
         struct El {
@@ -69,11 +73,14 @@ namespace ostd {
             el_t val;
         };
 
+        struct end_marker_t {};
+
         /// Enumerator Iterator type.
         /// Keeps track of an index and the iterator of the underlying container.
         struct It {
             size_t i;
-            it_t  it;
+            itb_t  it;
+            ite_t  end_;
 
             constexpr It &operator++() {
                 ++it, ++i;
@@ -83,16 +90,23 @@ namespace ostd {
             constexpr El operator*() const { return El { i, *it }; }
             constexpr bool operator==(const It &o) const { return it == o.it; }
             constexpr bool operator!=(const It &o) const { return it != o.it; }
+
+            constexpr bool operator==(end_marker_t) const { return it == end_; }
+            constexpr bool operator!=(end_marker_t) const { return !(*this == end_marker_t{}); }
         };
 
-        constexpr It begin() const { return It { 0, ostd::begin(container) }; }
-        constexpr It end()   const { return It { 0,   ostd::end(container) }; }
+        constexpr It begin() const { return It { 0, begin_, end_ }; }
+        // constexpr It end()   const { return It { 0,   end_ }; }
+        constexpr end_marker_t end() const { return {}; }
 
-        constexpr Enumerator(T &x) : container(x) { }
+        constexpr Enumerator(T  &x) : begin_(ostd::begin(x)), end_(ostd::end(x)) { }
+        constexpr Enumerator(T &&x) : begin_(ostd::begin(x)), end_(ostd::end(x)) { }
     };
 
     /// \see Enumerator
-    template<typename T> constexpr Enumerator<T> enumerate(T &x) { return Enumerator(x); }
+    template<typename T> constexpr Enumerator<T> enumerate(T  &x) { return Enumerator(x); }
+    /// \see Enumerator
+    template<typename T> constexpr Enumerator<T> enumerate(T &&x) { return Enumerator(x); }
 
     /**
      * Zipper container adapter.
@@ -121,17 +135,24 @@ namespace ostd {
      */
     template<typename T1, typename T2>
     struct Zipper {
-        T1 &container1;
-        T2 &container2;
+        /// Iterator types of the underlying containers.
+        ///@{
+        using it1b_t = decltype(ostd::begin(*(T1*)0));
+        using it1e_t = decltype(ostd::end  (*(T1*)0));
 
-        /// Iterator type of the underlying container.
-        using it1_t = decltype(ostd::begin(container1));
-        using it2_t = decltype(ostd::begin(container2));
+        using it2b_t = decltype(ostd::begin(*(T2*)0));
+        using it2e_t = decltype(ostd::end  (*(T2*)0));
+        ///@}
+
+        it1b_t begin1_; it1e_t end1_;
+        it2b_t begin2_; it2e_t end2_;
 
         /// Return type of iterator's deref operator.
         /// (usually a reference to an element)
-        using el1_t = decltype(*declval<it1_t>());
-        using el2_t = decltype(*declval<it2_t>());
+        ///@{
+        using el1_t = decltype(*declval<it1b_t>());
+        using el2_t = decltype(*declval<it2b_t>());
+        ///@}
 
         struct El {
             el1_t x;
@@ -141,10 +162,10 @@ namespace ostd {
         struct end_marker_t {};
 
         struct It {
-            const T1 &container1;
-            const T2 &container2;
-            it1_t it1;
-            it2_t it2;
+            it1b_t it1;
+            it2b_t it2;
+            it1e_t end1_;
+            it2e_t end2_;
 
             constexpr It &operator++() {
                 ++it1, ++it2;
@@ -155,26 +176,97 @@ namespace ostd {
             constexpr bool operator==(const It &o) const {
                 return it1 == o.it1 && it2 == o.it2;
             }
-            constexpr bool operator!=(const It &o) const { return !(*this == o); }
+            constexpr bool operator!=(const It &o)  const { return !(*this == o); }
             constexpr bool operator==(end_marker_t) const {
-                return it1 == ostd::end(container1)
-                    || it2 == ostd::end(container2);
+                return it1 == end1_
+                    || it2 == end2_;
             }
             constexpr bool operator!=(end_marker_t) const { return !(*this == end_marker_t{}); }
         };
 
-        constexpr It         begin() const { return It { container1
-                                                       , container2
-                                                       , ostd::begin(container1)
-                                                       , ostd::begin(container2) }; }
+        constexpr It         begin() const { return It { begin1_
+                                                       , begin2_
+                                                       , end1_
+                                                       , end2_ }; }
         constexpr end_marker_t end() const { return {}; }
 
         constexpr Zipper(T1 &x, T2 &y)
-            : container1(x)
-            , container2(y) { }
+            : begin1_(ostd::begin(x)), end1_(ostd::end(x))
+            , begin2_(ostd::begin(y)), end2_(ostd::end(y))
+            { }
+        constexpr Zipper(T1 &&x, T2 &&y)
+            : begin1_(ostd::begin(x)), end1_(ostd::end(x))
+            , begin2_(ostd::begin(y)), end2_(ostd::end(y))
+            { }
     };
 
     /// \see Zipper
     template<typename T1, typename T2>
     constexpr Zipper<T1,T2> zip(T1 &x, T2 &y) { return Zipper(x, y); }
+    template<typename T1, typename T2>
+    constexpr Zipper<T1,T2> zip(T1 &&x, T2 &&y) { return Zipper(x, y); }
+
+    /**
+     * Range iterator.
+     *
+     * This allows for Python-style iteration:
+     *
+     *     for (int i : range(3))
+     *         kprint("{}\n", i);
+     *
+     *     => 0
+     *     => 1
+     *     => 2
+     *
+     *     for (int i : range(-1, 3))
+     *         kprint("{}\n", i);
+     *
+     *     => -1
+     *     => 0
+     *     => 1
+     *     => 2
+     */
+    template<typename T = size_t>
+    struct Range {
+
+        T start;
+        T step;
+        T stop;
+
+        struct It {
+            T val;
+            T step;
+            T stop;
+
+            constexpr It &operator++() {
+                val += step;
+                return *this;
+            }
+            constexpr T operator*() const { return val; }
+            constexpr bool operator==(const It &o) const {
+                if (o.val == stop)
+                     return val >= stop;
+                else return val == o.val;
+            }
+            constexpr bool operator!=(const It &o) const { return !(*this == o); }
+        };
+
+        constexpr It begin() const { return { start, step, stop }; }
+        constexpr It end()   const { return { stop,  step, stop }; }
+
+        constexpr Range(T start_, T stop_, T step_ = 1)
+            : start(start_)
+            , step (step_ )
+            , stop(stop_) { }
+    };
+
+    /// \see Range
+    template<typename T, typename T2>
+    constexpr Range<T> range(T start, T2 stop, T step = 1) {
+        return { start, T(stop), step };
+    }
+
+    /// \see Range
+    template<typename T = size_t>
+    constexpr Range<T> range(T count) { return range(T(0), count); }
 }

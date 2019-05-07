@@ -14,7 +14,10 @@
  */
 #pragma once
 
-// Type aliases.
+/// \file Type aliases.
+
+/// \name Common integer types.
+///@{
 
 using u64 = unsigned long long;
 using u32 = unsigned int;
@@ -38,3 +41,14 @@ using sli32 =   signed long int;
 static_assert(sizeof(uli32)  == sizeof(u32));
 static_assert(sizeof(sli32)  == sizeof(s32));
 static_assert(sizeof(addr_t) == sizeof(void*));
+
+///@}
+/// \name OS integer types.
+///@{
+
+using errno_t = s32; ///< Error number.
+using pid_t   = s32; ///< Process id.
+using tid_t   = s32; ///< Thread id.
+using fd_t    = s32; ///< File descriptor.
+
+///@}

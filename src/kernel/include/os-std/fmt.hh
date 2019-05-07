@@ -160,7 +160,7 @@ namespace ostd {
                 if (scale == 4) size_char = 'T';
                 if (scale == 5) size_char = 'P';
                 if (scale == 6) size_char = 'E';
-                n /= pow((u64)1024, (u64)scale);
+                n = div_round(n, pow((u64)1024, (u64)scale));
             }
 
             if (sign || f.explicit_sign) prefix_len += 1;
@@ -252,7 +252,7 @@ namespace ostd {
 
             if (f.prefix_radix) f.width += 2;
 
-            return format(print, f, (u64)a);
+            return format(print, f, (u64)(addr_t)a);
         }
 
         struct ParseResult {

@@ -47,6 +47,29 @@ To enable acceleration using kvm, run:
 
 : make disk && make qemu-kvm
 
+*** VirtualBox
+
+In order to run in Virtualbox, do the following:
+
+- Make a disk using the =qcow= target:
+
+: make qcow
+
+Then:
+
+- Create a diskless VM in VirtualBox.
+- Go to VM settings -> System -> Acceleration
+  - Check (✓) Enable VT-X/AMD-V and Enable Nested Paging
+- Go to VM settings -> Storage
+  - Remove the SATA controller, if it exists.
+  - Create an IDE controller with default settings
+  - Add the =disk.qcow= file as an IDE disk
+
+Now you should be able to start the VM through virtualbox.
+
+# in the future we should auto-generate importable vm configurations, or
+# something.
+
 *** Forcing a rebuild
 
 This forcibly rebuilds all components, ignoring existing output files.

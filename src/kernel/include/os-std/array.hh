@@ -77,26 +77,17 @@ namespace ostd {
         constexpr       T *end()         { return data_+N; }
         ///@}
 
-        constexpr Array() : data_{} { }
-
-        template<size_t N2>
-        constexpr Array(const T (&data)[N2])
-            : data_{} {
-
-            static_assert(N2 <= N, "tried to initialize an array with too many elements");
-            mem_copy(data_, data, N2);
-        }
-
-        template<typename T1, typename... Ts>
-        constexpr Array(const T1 &arg, const Ts&... args)
-            : data_{arg, args...} { }
+        constexpr Array() = default;
     };
 
     template<typename T, typename... Ts>
     Array(const T &a, const Ts&... args) -> Array<T,1+sizeof...(args)>;
 
-    static_assert(sizeof(Array<u16,7>) == 14
-                 ,"array is guaranteed to be of the same size as an equivalent C-array");
+    static_assert(sizeof (Array<u16,7>) == sizeof (u16[7])
+               && sizeof (Array<u8 ,7>) == sizeof (u8 [7])
+               && alignof(Array<u16,7>) == alignof(u16[7])
+               && alignof(Array<u8 ,7>) == alignof(u8 [7])
+                 ,"array is guaranteed to be of the same size and alignment as an equivalent C-array");
 }
 
 namespace ostd::Format {

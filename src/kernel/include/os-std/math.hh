@@ -59,11 +59,19 @@ namespace ostd {
     template<typename N> constexpr N min(N x, N y)          { return x <= y ? x : y; }
     template<typename N> constexpr N clamp(N mi, N ma, N x) { return min(ma, max(mi, x)); }
 
-    /// Performs an integer divide, rounding up to the next whole number.
+    /// Performs a positive integer divide, rounding up to the next whole number.
     template<typename N, typename M> constexpr N div_ceil(N x, M y) {
         auto rest = x % y;
         if (rest) return x / y + 1;
         else      return x / y;
+    }
+
+    /// Performs a positive integer divide, rounding to the nearest whole number.
+    template<typename N, typename M> constexpr N div_round(N x, M y) {
+        auto rest = x % y;
+        // eww.
+        if (rest < (y&1?y+1:y)/2) return x / y;
+        else                      return x / y + 1;
     }
 
     template<typename N, typename M> constexpr N align_up(N x, M y) {
@@ -125,7 +133,7 @@ namespace ostd {
     constexpr u8    ctz_(u32 x) { return __builtin_ctz(x);      }
     constexpr u8 popcnt_(u32 x) { return __builtin_popcount(x); }
 #else
-    #error "Need a LZCNT / CLZ, CTZ, POPCNT implementation since this is not GCC/Clang"
+    #error "Need alternative LZCNT / CLZ, CTZ, POPCNT implementations since this is not GCC/Clang"
 #endif
 
     template<typename N>

@@ -18,8 +18,20 @@
 
 namespace Interrupt {
 
+    inline bool is_enabled() { return bit_get(asm_eflags(), 9); }
+
     void disable(); ///< Disables interrupts.
     void enable();  ///< Enables interrupts.
 
     void init();
 }
+
+/// Disable interrupts.
+#define enter_critical_section()                       \
+    bool ints_were_enabled_ = Interrupt::is_enabled(); \
+    Interrupt::disable();
+
+/// Re-enable interrupts, if they were disabled by the previous 'enter'.
+#define leave_critical_section() \
+    if (ints_were_enabled_)      \
+        Interrupt::enable();

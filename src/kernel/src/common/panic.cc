@@ -29,6 +29,12 @@ void panic(StringView reason) {
         kprint("\n*** kernel panic ***\n");
     }
 
+    // Make the screen a nice familiar white-on-blue :-)
+    for (int i = 0; i < 80*25; ++i) {
+        volatile u16 &x = ((volatile u16*)0xb8000)[i];
+        x = (x & 0x00ff) | 0x1f00;
+    }
+
     // Print "PANIC" in the upper right corner of the screen.
     // (note: this assumes the vga is in default 80x25 textmode.
     constexpr StringView str = " PANIC! ";

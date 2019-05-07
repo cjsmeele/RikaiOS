@@ -17,17 +17,25 @@
 #include "memory/manager-physical.hh"
 #include "memory/manager-virtual.hh"
 #include "memory/kernel-heap.hh"
+#include "process/proc.hh"
 
 void handle_debug_key(char ch) {
          if (ch == '\x1b') kprint("ESC"), crash();
     else if (ch == '1')    Memory::Physical::dump_stats();
     else if (ch == '2')    Memory::Physical::dump_bitmap();
-    else if (ch == '3')    kprint("boop");
-    else if (ch == '4')    kprint("boop");
-    else if (ch == '5')    Memory::Heap::dump_stats();
-    else if (ch == '6')    Memory::Heap::dump_all();
-    else if (ch == '7')    kprint("boop");
-    else if (ch == '8')    kprint("boop");
-    else if (ch == '9')    kprint("boop");
-    else if (ch == '0')    kprint("boop");
+    else if (ch == '3')    kprint("<debug3>"); // <- todo: VMM debug keys.
+    else if (ch == '4')    (void)Memory::Heap::alloc(1000, 8);
+    else if (ch == '5')    Memory::Heap::dump_stats()
+                         , Memory::Heap::dump_all();
+    else if (ch == '6')    Process::dump_ready_queue();
+    else if (ch == '7')    Process::dump_all();
+    else if (ch == '8')    kprint("\n** scheduler paused **\n")
+                         , Process::pause();
+    else if (ch == '9')    kprint("\n** scheduler resumed **\n")
+                         , Process::resume();
+    else if (ch == '0')    kprint("\n<pressed the dedicated *boop* key - OS was succesfully booped>\n");
+    else if (ch == '\x7f') kprint("\n** system reset **\n")
+                         , Io::wait(1_M)
+                         , Io::out_8(0x64, 0xfe);
+    //              ^ DEL char
 }

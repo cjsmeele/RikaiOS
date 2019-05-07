@@ -103,6 +103,14 @@ namespace ostd {
             *this = "";
         }
 
+        constexpr void rtrim() {
+            for (ssize_t i = Nchars-1; i > 0; --i) {
+                if (!data_[i] || data_[i] == ' ')
+                    data_[i] = 0, --length;
+                else return;
+            }
+        }
+
         constexpr String &operator=(const char *o) {
             for (length_ = 0
                 ;o[length_] && length_ < Nchars
@@ -115,6 +123,8 @@ namespace ostd {
 
             return *this;
         }
+
+        constexpr String &operator=(StringView o);
 
         constexpr String &operator+=(const char *o) {
             for (size_t i = 0
@@ -130,7 +140,7 @@ namespace ostd {
         }
 
         constexpr String &operator+=(char c) {
-            if (length_+1 < Nchars) {
+            if (length_ < Nchars) {
                 data_[length_++] = c;
                 data_[length_]   = 0;
             }
@@ -226,6 +236,20 @@ namespace ostd {
                 :   data_(s.data())
                 , length_(s.length()) { }
     };
+
+    template<size_t N>
+    constexpr String<N> &String<N>::operator=(StringView o) {
+        for (length_ = 0
+            ;o[length_] && length_ < N
+            ;++length_) {
+
+            data_[length_] = o[length_];
+        }
+        // Add NUL terminator.
+        data_[length_] = 0;
+
+        return *this;
+    }
 
     template<size_t N>
     constexpr String<N>::operator StringView() {

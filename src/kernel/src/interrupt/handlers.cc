@@ -17,30 +17,7 @@
 #include "page-fault.hh"
 #include "../memory/gdt.hh"
 #include "../debug-keys.hh"
-
-/**
- * \file
- * Interrupt Service Routines.
- *
- * In this file we define all interrupt and exception handlers.
- *
- * Interrupt numbers 0x00-0x1f are exceptions, they are fired on e.g. memory
- * access violations, illegal instructions, and divisions by zero. Interrupts
- * 0x20 - 0x3f are hardware interrupts, fired e.g. by a keyboard or a timer.
- *
- * Interrupt space above 0x3f we can freely fill in. For example, we allow
- * userspace programs to trigger software interrupt 0xca to perform a syscall.
- * In comparison, Linux uses int 0x80 for this.
- *
- * We need to define as many unique functions as there are interrupt numbers
- * that we want to handle, because the handler itself is not told the interrupt
- * number by the CPU.
- *
- * Our approach then, is to create 256 tiny handler functions, that each push
- * their own interrupt number and then call a common handler routine.
- * Interrupts that we do not want to handle we simply detect and ignore.
- * This lets us avoid dealing with interrupt masks and patching the IDT.
- */
+#include "../process/proc.hh"
 
 /**
  * State save/restore.
@@ -115,94 +92,110 @@ constexpr Array<StringView, 0x20> exception_names
     /* 0x1e */ , "Unknown Exception"
     /* 0x1f */ , "Unknown Exception" };
 
-/// XXX Temporary.
-static u64 ticks = 0;
+namespace Interrupt::Handler {
 
-/**
- * Exception handler.
- *
- * Called by the common interrupt handler for exceptions.
- * We don't really handly anything yet, so any exception is a hard error.
- *
- * (in the future, we may e.g. kill offending processes or use page faults to implement CoW)
- */
-static void handle_exception(Interrupt::interrupt_frame_t &frame) {
-    using namespace Interrupt;
+    static Array<irq_handler_t,16> irq_handlers;
 
-    static constexpr Array quotes {
-StringView("Aaaaaand it's gone.")
-          ,"Into the trash it goes..."
-          ,"Your rubber ducky needs a word with you."
-          ,"`M-x doctor' is there for you if you need help."
-          ,"I'm sorry, Dave. I'm afraid I can't do that."
-          ,"PC LOAD LETTER"
-          ,"Abort, Retry, Fail?"
-          ,"Set phasers to kill -9."
-          ,"You've been terminated."
-          ,"Je kan altijd nog BIM doen."
-          ,"Have you tried turning it off and on again?"
-          ,"Try putting `sudo' in front."
-          ,"This is fine..."
-    };
+    void register_irq_handler(u8 irq, irq_handler_t handler) {
+        if (irq >= irq_handlers.size())
+            panic("tried to register isr for irq{} (>{})"
+                 ,irq, irq_handlers.size()-1);
 
-    // See if we can handle page faults in a non-fatal way.
-    if (frame.int_no == 0x0e && handle_pagefault(frame))
-        // Ok!
-        return;
+        if (irq_handlers[irq])
+            // We do not support IRQ sharing.
+            panic("tried to register 2 handlers for irq{}:\n"
+                  " @{}, @{}"
+                 ,irq_handlers[irq]
+                 ,handler
+                 ,irq);
 
-    // Panic with a register dump.
-    panic("{#02x}:{#08x} - {}\n\n{}\n{}\n"
-         ,frame.int_no
-         ,frame.error_code
-         ,frame.int_no < exception_names.size()
-            ? exception_names[frame.int_no]
-            : "???"
-         ,frame
-         ,quotes[rand()%quotes.size()]);
-}
-
-/**
- * Hardware interrupt handler.
- *
- * Called by the common interrupt handler for hardware interrupts.
- */
-static void handle_irq(Interrupt::interrupt_frame_t &frame) {
-    using namespace Interrupt;
-
-    if (frame.int_no == 0x20) {
-        // PIT Timer tick.
-        ticks++;
-    } else if (frame.int_no == 0x21 || frame.int_no == 0x24) {
-        char ch = 0;
-        if (frame.int_no == 0x21) {
-            // Handle keyboard input.
-            u8 sc = Io::in_8(0x60);
-                   if (sc ==  1)             { ch = '\x1b'; // escape
-            } else if (sc == 11)             { ch = '0';    // number row
-            } else if (sc >=  2 && sc <= 10) { ch = '0' + (sc-1);
-            } else {
-                // kprint("scancode: {} ", (u8)ch);
-            }
-        } else if (frame.int_no == 0x24) {
-            // Handle serial line input.
-            ch = Io::in_8(0x3f8);
-        }
-        handle_debug_key(ch);
-
-    } else {
-        kprint("int{#02x} ", frame.int_no);
+        irq_handlers[irq] = handler;
     }
-}
 
-/**
- * Software interrupt handler.
- *
- * Called by the common interrupt handler for system calls.
- */
-static void handle_syscall(Interrupt::interrupt_frame_t &frame) {
-    using namespace Interrupt;
+    /**
+     * Exception handler.
+     *
+     * Called by the common interrupt handler for exceptions.
+     * We don't really handle much yet, so most exception crash the machine
+     * with a nice register dump.
+     */
+    static void handle_exception(Interrupt::interrupt_frame_t &frame) {
+        using namespace Interrupt;
 
-    (void)frame;
+        static constexpr Array quotes {
+            StringView("Aaaaaand it's gone.")
+                      ,"Into the trash it goes..."
+                      ,"Your rubber ducky needs a word with you."
+                      ,"`M-x doctor' is there for you if you need help."
+                      ,"I'm sorry, Dave. I'm afraid I can't do that."
+                      ,"PC LOAD LETTER"
+                      ,"Abort, Retry, Fail?"
+                      ,"Set phasers to kill -9."
+                      ,"You've been terminated."
+                      ,"Je kan altijd nog BIM doen."
+                      ,"Have you tried turning it off and on again?"
+                      ,"Try putting `sudo' in front."
+                      ,"This is fine..."
+        };
+
+        // See if we can handle page faults in a non-fatal way.
+        if (frame.int_no == 0x0e && handle_pagefault(frame))
+            // Ok!
+            return;
+
+        // Panic with a register dump.
+        panic("{#02x}:{#08x} - {}\n\n{}\n{}\n"
+             ,frame.int_no
+             ,frame.error_code
+             ,frame.int_no < exception_names.size()
+                ? exception_names[frame.int_no]
+                : "???"
+             ,frame
+             ,quotes[rand()%quotes.size()]);
+    }
+
+    /**
+     * Hardware interrupt handler.
+     *
+     * Called by the common interrupt handler for hardware interrupts.
+     */
+    static void handle_irq(Interrupt::interrupt_frame_t &frame) {
+        using namespace Interrupt;
+
+        u8 irq = frame.int_no - 0x20;
+
+        // Hardware interrupts must be acknowledged.
+        Controller::acknowledge_interrupt(frame.int_no);
+
+        if (irq_handlers[irq]) {
+            irq_handlers[irq](frame);
+
+        } else {
+
+            if (frame.int_no == 0x21 || frame.int_no == 0x24) {
+                char ch = 0;
+                if (frame.int_no == 0x21) {
+                } else if (frame.int_no == 0x24) {
+                    // Handle serial line input.
+                    ch = Io::in_8(0x3f8);
+                }
+                handle_debug_key(ch);
+            }
+
+            kprint("!!irq{} ", irq);
+        }
+    }
+
+    /**
+     * Software interrupt handler.
+     *
+     * Called by the common interrupt handler for system calls.
+     */
+    static void handle_syscall(Interrupt::interrupt_frame_t &frame) {
+        using namespace Interrupt;
+
+        (void)frame;
+    }
 }
 
 /**
@@ -214,15 +207,14 @@ extern "C" void common_interrupt_handler(Interrupt::interrupt_frame_t &frame);
 extern "C" void common_interrupt_handler(Interrupt::interrupt_frame_t &frame) {
     using namespace Interrupt;
 
-    if (frame.int_no < 0x20) {
-        handle_exception(frame);
-    } else if (frame.int_no < 0x40) {
-        // Hardware interrupts must be acknowledged.
-        Controller::acknowledge_interrupt(frame.int_no);
+    Process::save_frame(frame);
 
-        handle_irq(frame);
+    if (frame.int_no < 0x20) {
+        Handler::handle_exception(frame);
+    } else if (frame.int_no < 0x30) {
+        Handler::handle_irq(frame);
     } else {
-        handle_syscall(frame);
+        Handler::handle_syscall(frame);
     }
 }
 

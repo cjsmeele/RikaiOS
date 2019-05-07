@@ -50,8 +50,8 @@ namespace Memory::Heap {
         Array<char,3> sentinel; // Sentinel value.
     };
 
-    static node_t *first_node    = nullptr;
-    static node_t * last_node    = nullptr;
+    static node_t *first_node = nullptr;
+    static node_t * last_node = nullptr;
 
     /// If there are this many unused bytes in a node during allocation,
     /// split the node.
@@ -300,18 +300,18 @@ namespace Memory::Heap {
         kprint("\nkernel heap allocations:\n");
         for (node_t *node = first_node; node; node = node->next) {
             if (node->used) {
-                kprint(":{}={}: ", (u8*)node+sizeof(node_t), node_size(node));
+                kprint("{}={S} -> ", (u8*)node+sizeof(node_t), node_size(node));
             } else if (node->next) {
-                kprint("[HOLE {}] ", node_size(node));
+                kprint("[HOLE {S}] -> ", node_size(node));
             } else {
-                kprint("[{}] ", node_size(node));
+                kprint("[{S}] ", node_size(node));
             }
         }
         kprint("\n");
     }
 
     void free(void *p) {
-        kprint("FREE: {}\n", p);
+        // kprint("FREE: {}\n", p);
 
         if ((addr_t)p < heap_start + sizeof(node_t))
             panic("bad pointer passed to free: {}", p);
@@ -345,7 +345,7 @@ namespace Memory::Heap {
         if (bit_count(align) != 1)
             align = 1U << 31 >> (count_leading_0s(align) - 1);
 
-        kprint("ALLOC: {} aligned {}\n", size, align);
+        // kprint("ALLOC: {} aligned {}\n", size, align);
 
         for (node_t *node = first_node; node; node = node->next) {
 

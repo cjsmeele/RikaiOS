@@ -17,7 +17,59 @@
 #include "common.hh"
 #include "frame.hh"
 
+/**
+ * \namespace Interrupt::Handler
+ *
+ * Interrupt Service Routines.
+ *
+ * In this file we define all interrupt and exception handlers.
+ *
+ * Interrupt numbers 0x00-0x1f are exceptions, they are fired on e.g. memory
+ * access violations, illegal instructions, and divisions by zero. Interrupts
+ * 0x20 - 0x2f are hardware interrupt requests (IRQs), fired e.g. by a keyboard
+ * or a timer.
+ *
+ * Interrupt space above 0x2f we can freely fill in. For example, we allow
+ * userspace programs to trigger software interrupt 0xca to perform a syscall.
+ * In comparison, Linux uses int 0x80 for this.
+ *
+ * Side note: In modern OSes, a driver may ask a device to use a different IRQ
+ * number in order to avoid conflicts. For simplicity's sake, we do no such
+ * thing: All supported hardware uses fixed IRQ numbers, and we do not allow
+ * devices to share IRQ numbers.
+ *
+ * We need to define as many unique functions as there are interrupt numbers
+ * that we want to handle, because the handler itself is not told the interrupt
+ * number by the CPU.
+ *
+ * Our approach then, is to create 256 tiny handler functions, that each push
+ * their own interrupt number and then call a common handler routine.
+ * Interrupts that we do not want to handle we simply detect and ignore.
+ * This lets us avoid dealing with interrupt masks and patching the IDT.
+ *
+ * see handlers.cc for the implementation.
+ *
+ * ---
+ *
+ * All drivers that need to handle IRQs register themselves on initialisation.
+ *
+ * Our fixed IRQ numbers are as follows:
+ *
+ * - IRQ  0 (int 20h): Programmable Interrupt Timer (PIT)
+ * - IRQ  1 (int 21h): PS/2 Keyboard
+ * - IRQ  4 (int 24h): Serial port 1
+ * - IRQ 12 (int 2ch): PS/2 Mouse
+ * - IRQ 14 (int 2eh): Primary ATA bus
+ * - IRQ 15 (int 2fh): Secondary ATA bus
+ */
 namespace Interrupt::Handler {
+
+    /// An IRQ handler is a function that receives a frame and returns nothing.
+    using irq_handler_t = function_ptr<void(const interrupt_frame_t &frame)>;
+
+    /// This allows drivers to register their own interrupt handling routines.
+    /// (irq must be a value in the range of 0-15, inclusive)
+    void register_irq_handler(u8 irq, irq_handler_t handler);
 
     // Declare all interrupt service routines.
     // We use a macro to avoid boilerplate.

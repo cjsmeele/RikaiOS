@@ -15,14 +15,19 @@
 #include "kprint.hh"
 #include "../console/textmode.hh"
 #include "../console/serial.hh"
+#include "interrupt/interrupt.hh"
 
 using namespace ostd;
 
 void kprint_char(char c) {
     // Try to print to whatever console is available.
 
+    enter_critical_section();
+
     Console::TextMode::print_char(c);
     Console::Serial  ::print_char(c);
+
+    leave_critical_section();
 }
 
 void kprint_init() {

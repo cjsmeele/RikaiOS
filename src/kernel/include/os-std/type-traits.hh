@@ -184,7 +184,11 @@ namespace ostd {
         return static_cast<typename remove_ref<T>::type&&>(x);
     }
     template<typename T>
-    constexpr T&& forward(T &&x) {
+    constexpr T&& forward(typename remove_ref<T>::type &&x) {
+        return static_cast<T&&>(x);
+    }
+    template<typename T>
+    constexpr T&& forward(T &x) {
         return static_cast<T&&>(x);
     }
 
@@ -193,4 +197,18 @@ namespace ostd {
         constexpr static u64 value = is_signed<T>::value
             ? ~T(1 << (sizeof(T)*8-1)) : static_cast<T>(-1);
     };
+
+    template<typename T>
+    struct function_type_t;
+
+    template<typename Return, typename... Arguments>
+    struct function_type_t<Return(Arguments...)> {
+        using ptr = Return(*)(Arguments...);
+        using ref = Return(&)(Arguments...);
+    };
+    template<typename T>
+    struct function_type_t : public function_type_t<T()> { };
+
+    template<typename F>
+    using function_ptr = typename function_type_t<F>::ptr;
 }

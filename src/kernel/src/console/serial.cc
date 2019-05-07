@@ -42,6 +42,10 @@ namespace Console::Serial {
         }
     }
 
+    bool exists() {
+        return port_number;
+    }
+
     void init() {
 
         // Check the BIOS Data Area for the I/O port number of the first serial port.

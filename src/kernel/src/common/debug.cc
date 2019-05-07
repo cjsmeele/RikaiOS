@@ -15,7 +15,11 @@
 #include "debug.hh"
 #include "panic.hh"
 #include "asm.hh"
+#include "kprint.hh"
 #include <os-std/type-traits.hh>
+#include <os-std/string.hh>
+
+using namespace ostd;
 
 void do_assert(bool test, const char *error) {
     if (!test)
@@ -37,4 +41,38 @@ int rand() {
     // Use the multiplier & incrementor as used in ISO/IEC 9899:201x.
     return (seed = seed * 1103515245 + 12345)
            & ostd::intmax<int>::value;
+}
+
+void hex_dump(void *p_, size_t size, bool as32) {
+    u8 *p = (u8*)((addr_t)p_ & ~0xf);
+
+    for (size_t i : range(0, size + ((u8*)p_ - p), 16)) {
+
+        String<16> str { };
+        for (size_t j : range(16))
+            str += p[i+j] >= ' ' && p[i+j] <= '~' ? p[i+j] : '.';
+
+        if (as32) {
+            kprint("{08x}: {08x} {08x} {08x} {08x} {}\n"
+                  ,p+i
+                  ,((u32*)(void*)(p+i))[0]
+                  ,((u32*)(void*)(p+i))[1]
+                  ,((u32*)(void*)(p+i))[2]
+                  ,((u32*)(void*)(p+i))[3]
+                  ,str);
+        } else {
+            kprint("{08x}:"
+                   " {02x}{02x}{02x}{02x}"
+                   " {02x}{02x}{02x}{02x}"
+                   " {02x}{02x}{02x}{02x}"
+                   " {02x}{02x}{02x}{02x}"
+                   " {}\n"
+                  ,p+i
+                  ,p[i+ 0],p[i+ 1],p[i+ 2],p[i+ 3]
+                  ,p[i+ 4],p[i+ 5],p[i+ 6],p[i+ 7]
+                  ,p[i+ 8],p[i+ 9],p[i+10],p[i+11]
+                  ,p[i+12],p[i+13],p[i+14],p[i+15]
+                  ,str);
+        }
+    }
 }

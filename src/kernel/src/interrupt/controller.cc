@@ -40,7 +40,7 @@ namespace Interrupt::Controller {
 
         // Remap interrupts for protected mode (unexciting x86 legacy stuff).
         Io::out_8(master_port + 1, 0x20); // master offset.
-        Io::out_8(slave_port  + 1, 0x30); // slave offset.
+        Io::out_8(slave_port  + 1, 0x28); // slave offset.
 
         Io::out_8(master_port + 1, 0x04);
         Io::out_8(slave_port  + 1, 0x02);

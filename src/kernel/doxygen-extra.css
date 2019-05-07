@@ -1,0 +1,12 @@
+html {
+    overflow: auto;
+}
+
+body {
+    max-width: 1000px;
+    margin: 0 auto !important;
+}
+
+* {
+    font-size: 12pt !important;
+}

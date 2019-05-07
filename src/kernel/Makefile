@@ -94,6 +94,8 @@ CXXFLAGS =                          \
 	-Wmissing-declarations          \
 	-Wredundant-decls               \
 	-Wuninitialized                 \
+	-Wno-unused-variable            \
+	-Wno-unused-function            \
 	-Wfatal-errors                  \
 	-fdiagnostics-color=auto
 

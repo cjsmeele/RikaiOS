@@ -35,3 +35,4 @@ using namespace ostd;
 using namespace ostd::literals;
 
 #define UNIMPLEMENTED assert(0, "tried to use an unimplemented feature");
+#define UNREACHABLE while(1) asm_nop();

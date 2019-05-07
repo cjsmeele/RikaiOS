@@ -81,6 +81,11 @@ namespace Interrupt {
         u32 error_code;
         cpu_interrupt_frame_t sys;
     };
+
+    static constexpr size_t frame_size_kernel = sizeof(interrupt_frame_t)
+                                              - sizeof(cpu_interrupt_frame_t::user_esp)
+                                              - sizeof(cpu_interrupt_frame_t::user_ss);
+    static constexpr size_t frame_size_user   = sizeof(interrupt_frame_t);
 }
 
 namespace ostd::Format {
@@ -107,7 +112,9 @@ namespace ostd::Format {
                             : frame.int_no < 0x40
                             ? "IRQ"
                             : "software interrupt"
-                          , frame.int_no);
+                          ,   frame.int_no >= 0x20 && frame.int_no < 0x40
+                            ? frame.int_no - 0x20
+                            : frame.int_no );
 
         g("eax", frame.regs.eax); g("cs", frame.sys.cs);  g("eip", frame.sys.eip);  nl();
         g("ebx", frame.regs.ebx); g("ss", frame.regs.ss); g("esp", frame.regs.esp); nl();

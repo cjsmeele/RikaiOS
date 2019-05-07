@@ -25,6 +25,10 @@ namespace Console::Serial {
     /// Sends a character.
     void print_char(char c);
 
+    /// Do we have a serial port?
+    /// (init must have been called first)
+    bool exists();
+
     /// Initializes the UART.
     void init();
 }

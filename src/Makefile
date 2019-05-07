@@ -27,14 +27,20 @@ endif
 
 QEMU     = qemu-system-i386
 QEMU_KVM = qemu-system-x86_64 -enable-kvm -cpu max
+QEMU_IMG = qemu-img
 BOCHS    = bochs
 GDB      = gdb
 
 BOCHSRC  = ./bochsrc
 GDBRC    = ./gdbrc
 
-DISK_IMG    = ./disk.img
-DISK_SIZE_M = 100
+DISK_IMG      = ./disk.img
+DISK_SIZE_M   = 100
+
+# VirtualBox does not like raw images.
+DISK_IMG_QCOW = ./disk.qcow
+DISK_IMG_VDI  = ./disk.vdi
+DISK_IMG_VMDK = ./disk.vmdk
 
 QEMU_SERIAL        = stdio
 QEMU_SERIAL_DEBUG  = file:serial-out.bin
@@ -45,22 +51,23 @@ else
     QEMU_DISPLAY = sdl
 endif
 
-QEMUFLAGS =                            \
-    -name osdev                        \
-    -m 1G                              \
-    -drive format=raw,file=$(DISK_IMG) \
-    -serial $(QEMU_SERIAL)             \
+QEMUFLAGS =                                                \
+    -name osdev                                            \
+    -m 1G                                                  \
+    -drive if=ide,bus=0,unit=0,format=raw,file=$(DISK_IMG) \
+    -serial  $(QEMU_SERIAL)                                \
     -display $(QEMU_DISPLAY)
 
-QEMUFLAGS_DEBUG =                      \
-    -name osdev                        \
-    -m 1G                              \
-    -drive format=raw,file=$(DISK_IMG) \
-    -serial $(QEMU_SERIAL_DEBUG)       \
-    -display $(QEMU_DISPLAY)           \
+
+QEMUFLAGS_DEBUG =                                          \
+    -name osdev                                            \
+    -m 1G                                                  \
+    -drive if=ide,bus=0,unit=0,format=raw,file=$(DISK_IMG) \
+    -serial  $(QEMU_SERIAL_DEBUG)                          \
+    -display $(QEMU_DISPLAY)                               \
     -S -gdb tcp::1133
 
-.PHONY: build doc rebuild boot kernel disk run debug qemu qemu-kvm bochs clean
+.PHONY: build doc rebuild boot kernel disk qcow run debug qemu qemu-kvm bochs clean
 
 -include Makefile.local
 
@@ -104,7 +111,23 @@ disk: build
 	        boot/stage2.bin         \
 	        kernel/kernel.bin
 
+qcow: disk
+	$(F)$(DISK_IMG_QCOW)
+	$(Q)$(QEMU_IMG) convert -f raw -O qcow $(DISK_IMG) $(DISK_IMG_QCOW)
+vdi: disk
+	$(F)$(DISK_IMG_VDI)
+	$(Q)$(QEMU_IMG) convert -f raw -O vdi $(DISK_IMG) $(DISK_IMG_VDI)
+	# VBox throws a tantrum if you replace a VDI file with a different UUID,
+	# so we fix.
+	VBoxManage internalcommands sethduuid $(DISK_IMG_VDI) \
+		aeeeeeee-aeee-aeee-aaaa-aaaaaaaaaaaa
+vmdk: disk
+	$(F)$(DISK_IMG_VMDK)
+	$(Q)$(QEMU_IMG) convert -f raw -O vmdk $(DISK_IMG) $(DISK_IMG_VMDK)
+	VBoxManage internalcommands sethduuid $(DISK_IMG_VMDK) \
+		aeeeeeee-aeee-aeee-aaaa-aaaaaaaaaaaa
+
 clean:
 	$(Q)$(MAKE) -C boot   clean
 	$(Q)$(MAKE) -C kernel clean
-	$(Q)rm -f $(DISK_IMG)
+	$(Q)rm -f $(DISK_IMG) $(DISK_IMG_QCOW)

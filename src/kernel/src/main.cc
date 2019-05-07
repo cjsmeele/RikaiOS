@@ -15,13 +15,58 @@
 #include "common.hh"
 #include "boot/bootinfo.hh"
 #include "memory/memory.hh"
-#include "memory/kernel-heap.hh"
+// #include "memory/kernel-heap.hh"
 #include "interrupt/interrupt.hh"
+#include "driver/driver.hh"
+#include "process/proc.hh"
+#include "ipc/semaphore.hh"
 
 /**
  * \file
  * Contains the kernel's main function.
  */
+
+// Testing threads and mutexes {{{
+
+mutex_t mutex;
+
+static void test_a() {
+    size_t size = 50;
+
+    for (u64 i = 0;; ++i) {
+        Io::wait(100); // some microseconds to get interrupted (so we don't stall the machine).
+        if (i % size == 0) {
+            mutex.lock();
+        } else if (i % size == size - 1) {
+            kprint("(A done)\n");
+            mutex.unlock();
+            Process::yield(); // give B some time to capture the mutex.
+        } else {
+            kprint("A");
+            Process::yield(); // control should be returned to us immediately.
+        }
+    }
+}
+
+static void test_b() {
+    size_t size = 20;
+
+    for (u64 i = 0;; ++i) {
+        Io::wait(100); // some microseconds to get interrupted (so we don't stall the machine).
+        if (i % size == 0) {
+            mutex.lock();
+        } else if (i % size == size - 1) {
+            kprint("(B done)\n");
+            mutex.unlock();
+            Process::yield(); // give A some time to capture the mutex.
+        } else {
+            kprint("B");
+            // Process::yield();
+        }
+    }
+}
+
+// }}}
 
 /// This is the C++ kernel entrypoint (run right after start.asm).
 extern "C" void kmain(const boot_info_t &boot_info);
@@ -32,55 +77,20 @@ extern "C" void kmain(const boot_info_t &boot_info) {
 
     kprint("\neos-os is booting.\n\n");
 
-    Interrupt::init();
-    Memory::init(boot_info);
+    // Initialise subsystems.
+    Interrupt::init();          // Configure the interrupt controller.
+    Memory   ::init(boot_info); // Set up segments, enable paging.
+    Process  ::init();          // Initialise the scheduler.
+    Driver   ::init();          // Detect and initialise hardware.
 
     kprint("\n(nothing to do - press ESC to crash and burn)\n\n");
 
-    // XXX temporary - sets PIT frequency to 1 KHz.
-    Io::out_8(0x43, 0x34);            Io::wait();
-    Io::out_8(0x40, (1*1193) & 0xff); Io::wait();
-    Io::out_8(0x40, (1*1193) >> 8);
+    Process::make_kernel_thread(test_a, "test-a");
+    Process::make_kernel_thread(test_b, "test-b");
 
-    Interrupt::enable();
+    // (this is where we would load an 'init' process from disk and run it)
 
-    struct alloc_t { u8 *p; size_t sz; };
-    Array<alloc_t, 100> allocs;
-
-    for (int i = 0; i < 1000; ++i) {
-
-        kprint("{20~} {} {20~}\n", '~', i, '~');
-
-        auto &[a, sz] = allocs[rand()%100];
-
-        if (a) {
-            for (ssize_t j = sz-1; j >= 0; --j) {
-                if (a[j] != (j&0xff))
-                    panic("corrupt!");
-            }
-            mem_set(a, u8(0xcc), sz);
-            Memory::Heap::free(a);
-            a  = 0;
-            sz = 0;
-        } else {
-            // size_t al = 1 << rand()%14;
-            size_t al = 1 << rand()%5;
-            sz = rand()%5000;
-            a  = (u8*)Memory::Heap::alloc(sz, al);
-            // kprint("{}:{}@{}\n", sz, al, a);
-            if (!a)
-                panic("OOM");
-            for (ssize_t j = sz-1; j >= 0; --j)
-                a[j] = j&0xff;
-        }
-
-        // Memory::Heap::dump_all();
-    }
-
-    for (int i = 0;; ++i) {
-        if (i % 50 == 0) kprint(".");
-        asm_hlt();
-    }
+    Process::run();
 
     panic("reached end of kmain");
 }

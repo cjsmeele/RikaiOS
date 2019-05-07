@@ -64,3 +64,10 @@ void do_assert(bool test, const char *error);
 
 /// A PRNG, useful for testing functions with semi-random arguments.
 int rand();
+
+/**
+ * Dump a region of memory.
+ *
+ * p_ is rounded down to the nearest 16-byte boundary.
+ */
+void hex_dump(void *p_, size_t size, bool as32 = false);

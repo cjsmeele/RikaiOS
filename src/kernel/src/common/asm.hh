@@ -47,15 +47,23 @@ inline void crash() { asm volatile("ud2"); }
 
 /// \name Functions for getting/setting special x86 registers.
 ///@{
-inline u32  asm_esp() { u32 x; asm volatile ("mov %%esp, %0"  : "=a"(x)); return x; }
-inline u32  asm_cr0() { u32 x; asm volatile ("mov %%cr0, %0"  : "=a"(x)); return x; }
-inline u32  asm_cr2() { u32 x; asm volatile ("mov %%cr2, %0"  : "=a"(x)); return x; }
-inline u32  asm_cr3() { u32 x; asm volatile ("mov %%cr3, %0"  : "=a"(x)); return x; }
-inline u32  asm_cr4() { u32 x; asm volatile ("mov %%cr4, %0"  : "=a"(x)); return x; }
+inline u32  asm_esp()      { u32 x; asm volatile ("mov %%esp, %0"  : "=a"(x)); return x; }
+inline u32  asm_eflags()   { u32 x; asm volatile ("pushf\n pop %0" : "=a"(x)); return x; }
+inline u32  asm_cr0()      { u32 x; asm volatile ("mov %%cr0, %0"  : "=a"(x)); return x; }
+inline u32  asm_cr2()      { u32 x; asm volatile ("mov %%cr2, %0"  : "=a"(x)); return x; }
+inline u32  asm_cr3()      { u32 x; asm volatile ("mov %%cr3, %0"  : "=a"(x)); return x; }
+inline u32  asm_cr4()      { u32 x; asm volatile ("mov %%cr4, %0"  : "=a"(x)); return x; }
 
-inline void asm_cr0(u32 x) {   asm volatile ("mov %0, %%cr0" :: "b" (x) : "memory" ); }
-inline void asm_cr3(u32 x) {   asm volatile ("mov %0, %%cr3" :: "b" (x) : "memory" ); }
-inline void asm_cr4(u32 x) {   asm volatile ("mov %0, %%cr4" :: "b" (x) : "memory" ); }
+inline void asm_cr0(u32 x) {        asm volatile ("mov %0, %%cr0" :: "b" (x) : "memory" ); }
+inline void asm_cr3(u32 x) {        asm volatile ("mov %0, %%cr3" :: "b" (x) : "memory" ); }
+inline void asm_cr4(u32 x) {        asm volatile ("mov %0, %%cr4" :: "b" (x) : "memory" ); }
+
+inline u32  asm_cs()       { u32 x; asm volatile ("mov %%cs, %0"   : "=a"(x)); return x; }
+inline u32  asm_ss()       { u32 x; asm volatile ("mov %%ds, %0"   : "=a"(x)); return x; }
+inline u32  asm_ds()       { u32 x; asm volatile ("mov %%ds, %0"   : "=a"(x)); return x; }
+inline u32  asm_es()       { u32 x; asm volatile ("mov %%ds, %0"   : "=a"(x)); return x; }
+inline u32  asm_fs()       { u32 x; asm volatile ("mov %%ds, %0"   : "=a"(x)); return x; }
+inline u32  asm_gs()       { u32 x; asm volatile ("mov %%ds, %0"   : "=a"(x)); return x; }
 ///@}
 
 inline u64  asm_rdtsc()   { u32 hi, lo;
@@ -83,7 +91,7 @@ inline void asm_invlpg(addr_t x) {
 }
 
 /// Do nothing for n cycles (unreliable).
-inline void spin(u64 n) { for (u64 i = 0; i < n; ++i) asm volatile ("nop"); }
+inline void spin(u64 n = 1) { for (u64 i = 0; i < n; ++i) asm volatile ("nop"); }
 
 /// Functions for reading / writing to x86 IO ports.
 namespace Io {
@@ -97,4 +105,12 @@ namespace Io {
 
     /// Performs a slow useless IO read operation to a achieve a few μs delay.
     inline void wait() { Io::in_8(0x80); }
+    inline void wait(size_t n) {
+        for (size_t i = 0; i < n; ++i)
+            wait();
+    }
+
+    inline void out_8s (u16 port,  u8 val) { out_8 (port, val); wait(); }
+    inline void out_16s(u16 port, u16 val) { out_16(port, val); wait(); }
+    inline void out_32s(u16 port, u32 val) { out_32(port, val); wait(); }
 }

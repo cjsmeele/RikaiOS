@@ -30,10 +30,8 @@
  *     │ Kernel code + data  │
  *     ├─────────────────────┤ ?
  *     │ Kernel heap         │
- *     ├─────────────────────┤ 0x3fb0'0000  - @ 1019 MiB
- *     ├─────────────────────┤ 0x3fb0'1000
- *     │ Kernel stack* (~1M) │
- *     ├─────────────────────┤ 0x3fbf'f000
+ *     ├─────────────────────┤ 0x3000'0000  - @ 768  MiB
+ *     │ Memory mapped I/O   │
  *     ├─────────────────────┤ 0x3fc0'0000  - @ 1020 MiB
  *     │ Page tables (4M)    │
  *     ├─────────────────────┤ 0x4000'0000  - @ 1 GiB
@@ -44,7 +42,7 @@
  *     └─────────────────────┘ 0xffff'ffff  - @ 4 GiB
  *
  * * One page (4K) below and above the stack are reserved - this is used to
- *   detect stack under- and overflows in kernel code.
+ *   detect stack under- and overflows in early kernel code.
  * * Before the first user-mode task is started, the kernel stack is
  *   still located within kernel data.
  *
@@ -59,4 +57,5 @@ namespace Memory::Layout {
     region_t page_tables();  ///< The per-task page tables.
     region_t kernel_image(); ///< The kernel binary (text+data, including bss).
     region_t kernel_heap();  ///< The global kernel heap.
+    region_t kernel_mmio();  ///< Memory mapped I/O.
 }

@@ -31,9 +31,11 @@ int stage2_main(u8  disk_no
 
     // Responsibilities of stage2:
     //
-    // - Ask the BIOS how much memory is available.
-    // - Load the kernel at address 0x00100000
-    // - Switch to 32-bit protected mode and run the kernel.
+    // - Query BIOS for available memory
+    // - Load the kernel from disk to address 0x00100000
+    // - Switch to 32-bit protected mode
+    // - Place memory information in a known location
+    // - Execute the kernel
 
     // Clear stage2's .bss segment.
     // (bss is not included in the stage2 binary, so we must zero it ourselves)

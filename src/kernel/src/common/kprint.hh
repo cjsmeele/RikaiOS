@@ -33,3 +33,19 @@ void kprint(ostd::StringView format
 
     ostd::fmt(kprint_char, format, args...);
 }
+
+/// Print a string, with some text identifying the component that called print.
+inline void kprint_from(ostd::StringView origin
+                       ,ostd::StringView str) {
+    kprint("{}: {}", origin, str);
+}
+
+/// Print a formatted string, with some text identifying the component that called print.
+template<typename... Args>
+void kprint_from(ostd::StringView origin
+                ,ostd::StringView format
+                ,const Args&...   args) {
+
+    kprint("{}: ", origin);
+    ostd::fmt(kprint_char, format, args...);
+}

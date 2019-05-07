@@ -94,14 +94,6 @@ namespace Memory::Virtual {
         return *(Array<PageTab,1024>*)Layout::page_tables().start;
     }
 
-    /// Switches address spaces.
-    static void set_pagedir(PageDir &dir) {
-        // Load a pointer to the page directory in CR3.
-        current_dir_ = &dir;
-        // XXX: resolve va.
-        asm_cr3((u32)current_dir_);
-    }
-
     /// Clears a page from the cache (the TLB).
     static void invalidate(addr_t addr) {
         asm_invlpg(addr);
@@ -120,11 +112,12 @@ namespace Memory::Virtual {
 
     /// Functions for address conversions.
     ///@{
-    [[maybe_unused]] static u32 addr_tab   (addr_t x) { return  x >> 22;          }
-    [[maybe_unused]] static u32 addr_page  (addr_t x) { return  x >> 12;          }
-    [[maybe_unused]] static u32 addr_pagei (addr_t x) { return (x >> 12) & 0x3ff; }
-    [[maybe_unused]] static u32 addr_offset(addr_t x) { return  x & 0xfff;        }
-    [[maybe_unused]] static u32 page_addr  (u32    x) { return  x << 12;          }
+    [[maybe_unused]] static u32    addr_tab   (addr_t x) { return  x >> 22;          }
+    [[maybe_unused]] static u32    addr_page  (addr_t x) { return  x >> 12;          }
+    [[maybe_unused]] static u32    addr_pagei (addr_t x) { return (x >> 12) & 0x3ff; }
+    [[maybe_unused]] static u32    addr_offset(addr_t x) { return  x & 0xfff;        }
+    [[maybe_unused]] static u32    page_addr  (u32    x) { return  x << 12;          }
+    [[maybe_unused]] static addr_t pte_addr   (pte_t  x) { return  x & ~(0xfff);     }
     ///@}
 
     /**
@@ -165,6 +158,36 @@ namespace Memory::Virtual {
         return &tables()[addr_tab(for_addr)];
     }
 
+    addr_t virtual_to_physical(addr_t virt) {
+        // If paging is not yet enabled, then virtual addresses map one-to-one
+        // to equal physical addresses.
+        if (!paging_enabled) return virt;
+
+        PageTab *table_ = get_tab(virt);
+        if (!table_) return 0;
+
+        PageTab table = *table_;
+        pte_t entry = table[addr_pagei(virt)];
+        return pte_addr(entry);
+    }
+    addr_t virtual_to_physical(void *virt) {
+        return virtual_to_physical((addr_t)virt);
+    }
+
+    /// Changes the current address space.
+    static void set_pagedir(PageDir &dir) {
+        // Load a pointer to the page directory in CR3.
+        addr_t phy_addr = virtual_to_physical(&dir);
+        assert(phy_addr, "tried to switch to unmapped page directory");
+        asm_cr3(phy_addr);
+        current_dir_ = &dir;
+    }
+
+    void switch_address_space(PageDir &page_dir) {
+        kprint("switch to pd @{}\n", &page_dir);
+        set_pagedir(page_dir);
+    }
+
     /// Removes a memory mapping.
     static void unmap_one(addr_t virt) {
 
@@ -174,8 +197,15 @@ namespace Memory::Virtual {
 
         if (tab_) {
             PageTab &tab = *tab_;
-            tab[addr_pagei(virt)] = 0;
-            invalidate(virt);
+            pte_t &pte = tab[addr_pagei(virt)];
+            if (pte & flag_present) {
+                // If this virt page owns the corresponding phy page,
+                // then free the phy page.
+                if (!(pte & flag_borrowed))
+                    Physical::free_one(addr_page(pte_addr(pte)));
+                pte = 0;
+                invalidate(virt);
+            }
         }
     }
 
@@ -216,7 +246,7 @@ namespace Memory::Virtual {
     /// Creates memory mappings.
     ///
     /// if phy is 0, tries to allocate physical pages.
-    bool map(addr_t virt, addr_t phy, size_t size, u32 flags) {
+    addr_t map(addr_t virt, addr_t phy, size_t size, u32 flags) {
 
         // kprint("* MAP {08x} -> {08x} {6S}\n", virt, phy, size);
 
@@ -228,10 +258,39 @@ namespace Memory::Virtual {
                 // map failed - remove mappings up to this point.
                 unmap(virt, i*page_size);
 
-                return false;
+                return 0;
             }
         }
-        return true;
+        return virt;
+    }
+
+    addr_t map_mmio(addr_t virt, addr_t phy, size_t size, u32 flags) {
+
+        assert(phy, "map_mmio makes no sense without a physical address");
+
+        flags |= flag_borrowed | flag_nocache;
+
+        if (virt) {
+            return map(virt, phy, size, flags);
+        } else {
+            static size_t mmio_mapped = 0; //Layout::kernel_mmio().start;
+            if (size <= Layout::kernel_mmio().size - mmio_mapped) {
+                virt = Layout::kernel_mmio().start + mmio_mapped;
+
+                if (map(virt, phy, size, flags))
+                    mmio_mapped += size;
+                return virt;
+            } else {
+                kprint("warning: no mmio space left for map_mmio()\n");
+                return 0;
+            }
+        }
+    }
+
+    bool is_mapped(addr_t virt) {
+        PageTab *tab = get_tab(virt);
+
+        return tab && ((*tab)[addr_pagei(virt)] & flag_present);
     }
 
     void init() {
@@ -267,8 +326,9 @@ namespace Memory::Virtual {
 
         kprint("virtual memory layout:\n");
         kprint("  kernel:   {S}\n", Layout::kernel());
+        kprint("    image:  {S}\n", Layout::kernel_image());
         kprint("    heap:   {S}\n", Layout::kernel_heap());
-        kprint("    kstack: {S}\n", Layout::kernel_stack());
+        kprint("    mmio:   {S}\n", Layout::kernel_mmio());
         kprint("    ptabs:  {S}\n", Layout::page_tables());
         kprint("  user:     {S}\n", Layout::user());
 
