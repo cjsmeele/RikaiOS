@@ -17,21 +17,27 @@
 #include "../console/serial.hh"
 #include "../debug-keys.hh"
 
+#include "../kshell.hh"
+
 DRIVER_NAME("uart");
 
 namespace Driver::Uart {
 
     using namespace Interrupt;
 
-    Queue<char, 16> queue;
+    // Queue<char, 16> queue;
 
     static void irq_handler(const interrupt_frame_t &) {
         char ch = Io::in_8(0x3f8);
 
-        handle_debug_key(ch);
-
-        if (!queue.enqueue(ch)) {
-            dprint("input queue full, char dropped\n");
+        if (kshell_enabled()) {
+            if (!kshell_input.try_enqueue(ch)) {
+                dprint("kshell input queue full, char dropped\n");
+            }
+        } else if (ch == 0x1b) {
+            enable_kshell();
+        } else {
+            handle_debug_key(ch);
         }
     }
 

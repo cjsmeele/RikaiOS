@@ -120,4 +120,9 @@ namespace Driver::Disk::Ata {
             }
         }
     }
+
+
+    void test(Array<u8, 512> &buf) {
+        Protocol::read_blocks(0, 0, 0, buf.data(), 1);
+    }
 }

@@ -182,7 +182,7 @@ namespace Interrupt::Handler {
                 handle_debug_key(ch);
             }
 
-            kprint("!!irq{} ", irq);
+            // kprint("!!irq{} ", irq);
         }
     }
 

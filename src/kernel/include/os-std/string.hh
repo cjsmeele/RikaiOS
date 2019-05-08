@@ -45,6 +45,7 @@ namespace ostd {
     constexpr bool is_num   (char c) { return in_range('0', '9', c);                          }
     constexpr bool is_hexnum(char c) { return is_num(c)   || in_range('a', 'f', to_lower(c)); }
     constexpr bool is_alnum (char c) { return is_alpha(c) || is_num(c);                       }
+    constexpr bool is_print (char c) { return in_range(' ', '~', c);                          }
     ///@}
 
     struct StringView;
@@ -58,7 +59,8 @@ namespace ostd {
      * Strings may be modified and resized in place, but the capacity cannot
      * change.
      *
-     * `Nchars` is the capacity of the string's contents; the NUL byte is not counted.
+     * `Nchars` is the capacity of the string's contents; the NUL byte is not
+     * counted (so String<3> can safely hold "foo").
      *
      * Note that length() != size()!
      * - size() always returns the *capacity* of the string, that is, the
@@ -76,7 +78,8 @@ namespace ostd {
         constexpr size_t size()   const { return Nchars; }
 
         /// Get the amount of characters currently in the string.
-        constexpr size_t length() const { return length_; }
+        constexpr size_t length() const { return length_;      }
+        constexpr bool   empty()  const { return length_ == 0; }
 
         /// Get a pointer to the underlying data.
         constexpr const char *data() const { return data_.data(); }
@@ -99,17 +102,26 @@ namespace ostd {
         constexpr       char *end()         { return data_.data()+length_; }
         ///@}
 
+        // Empty the string.
         constexpr void clear() {
             *this = "";
         }
 
+        // Trim whitespace at the end of the string.
         constexpr void rtrim() {
-            for (ssize_t i = Nchars-1; i > 0; --i) {
-                if (!data_[i] || data_[i] == ' ')
-                    data_[i] = 0, --length;
-                else return;
+            for (ssize_t i = Nchars-1; i >= 0; --i) {
+                if (!data_[i] || data_[i] == ' ') {
+                    if ((size_t)i < length_)
+                        --length_;
+                    data_[i] = 0;
+                } else {
+                    return;
+                }
             }
         }
+
+        constexpr bool operator==(StringView o) const;
+        constexpr bool operator!=(StringView o) const;
 
         constexpr String &operator=(const char *o) {
             for (length_ = 0
@@ -190,7 +202,8 @@ namespace ostd {
         const char *data_;
         size_t length_;
 
-        constexpr size_t length() const { return length_; }
+        constexpr size_t length() const { return length_;      }
+        constexpr bool   empty()  const { return length_ == 0; }
 
         constexpr StringView &operator=(const char *o) {
             data_ = o;
@@ -216,6 +229,21 @@ namespace ostd {
         ///@}
 
         constexpr operator const char*() const { return data_; }
+
+        constexpr bool operator==(const char *o) const {
+            return *this == StringView(o);
+        }
+        constexpr bool operator==(StringView o) const {
+            if (o.length() != length_)
+                return false;
+
+            for (auto [x,y] : zip(*this, o))
+                if (x != y) return false;
+            return true;
+        }
+
+        constexpr bool operator!=(const char *o) const { return !(*this == o); }
+        constexpr bool operator!=(StringView o)  const { return !(*this == o); }
 
         // constexpr operator bool() const { return data_; }
 
@@ -260,6 +288,16 @@ namespace ostd {
     constexpr String<N> &operator+=(String<N> &x, StringView y) {
         return x += y.data();
     }
+
+    template<size_t N>
+    constexpr bool String<N>::operator==(StringView o) const {
+        return StringView(*this) == o;
+    }
+    template<size_t N>
+    constexpr bool String<N>::operator!=(StringView o) const {
+        return StringView(*this) != o;
+    }
+
 
     namespace Format {
         template<typename F>

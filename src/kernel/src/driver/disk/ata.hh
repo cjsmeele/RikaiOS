@@ -33,4 +33,6 @@ namespace Driver::Disk::Ata {
     errno_t write(u8 disk_no, u64 lba, const u8 *buffer, size_t block_count);
 
     void init();
+
+    void test(Array<u8, 512> &buf);
 }

@@ -46,7 +46,7 @@ namespace Driver::Vga {
         write(4, 0x41); // Enable VBE, with linear framebuffer (LFB) support.
     }
 
-    static void test(u16 w, u16 h) {
+    void test(u16 w, u16 h) {
 
         if (!framebuffer)
             return;

@@ -42,8 +42,15 @@ namespace Process {
     /// Process (PID 0) for all kernel threads.
     proc_t    kernel_proc;
 
-    /// The back of the ready queue.
+    /// The back of the ready queue (may be null when there is nothing to do
+    /// but idle).
     thread_t *ready_last  = nullptr;
+
+    /// When userspace is paused (only kthreads can run), userspace threads are
+    /// split off the ready queue into this queue.
+    thread_t *paused_userspace_queue = nullptr;
+
+    bool userspace_paused = false;
 
     atomic<size_t> thread_count  = 0;
     atomic<size_t> process_count = 0;
@@ -85,6 +92,78 @@ namespace Process {
         return nullptr;
     }
 
+    /// Pop the next thread from the ready queue.
+    /// If no such thread exists, returns null.
+    static thread_t *dequeue() {
+
+        if (current_thread_ && current_thread_->next_ready) {
+            // There is a thread in the ready queue.
+            thread_t *next = current_thread_->next_ready;
+            // Break the link.
+            current_thread_->next_ready = nullptr;
+
+            // Update ready_last.
+            if (ready_last == next)
+                ready_last = nullptr;
+
+            return next;
+        } else {
+            return nullptr;
+        }
+    }
+
+    /// Add a thread to the ready queue.
+    static void enqueue(thread_t &t) {
+
+        enter_critical_section();
+
+        if (userspace_paused && !t.is_kernel_thread) {
+            // userspace is paused, add this thread to the paused queue instead.
+            if (paused_userspace_queue)
+                 t.next_ready = paused_userspace_queue;
+            else t.next_ready = nullptr;
+            paused_userspace_queue = &t;
+        }
+
+        if (ready_last) {
+            ready_last->next_ready = &t;
+            ready_last             = &t;
+        } else {
+            ready_last = &t;
+
+            if (current_thread_) {
+                current_thread_->next_ready = &t;
+            } else {
+                // No current thread yet, append to idle thread.
+                idle_thread->next_ready = &t;
+            }
+        }
+        // t.next_ready = nullptr;
+        t.blocked    = false;
+
+        leave_critical_section();
+    }
+
+    /// Add a thread to the front of the ready queue.
+    static void enqueue_front(thread_t &t) {
+
+        enter_critical_section();
+
+        if (!t.is_kernel_thread && userspace_paused) {
+            UNIMPLEMENTED
+        }
+
+        t.next_ready = current_thread_->next_ready;
+        t.blocked    = false;
+
+        current_thread_->next_ready = &t;
+
+        if (!ready_last)
+            ready_last = &t;
+
+        leave_critical_section();
+    }
+
     /// Start running / resume a thread.
     [[noreturn]]
     static void dispatch(thread_t &thread) {
@@ -92,7 +171,9 @@ namespace Process {
         // We definitely do not want to be interrupted during dispatch.
         enter_critical_section();
 
-        // kprint("dispatch to thread @{} with frame@{}: {}\n"
+        // kprint("dispatch to thread {} (current: {})\n", thread, current_thread_ ? current_thread_->name : "NONE");
+        // kprint("dispatch to thread {} @{} with frame@{}: {}\n"
+        //        , thread
         //        ,&thread
         //        ,&thread.frame
         //        ,thread.frame);
@@ -106,9 +187,21 @@ namespace Process {
                 Memory::Virtual::switch_address_space(*thread.page_dir);
         }
 
+        thread_t *old_thread = current_thread_;
+
         // Update active thread.
         current_thread_ = &thread;
         current_thread_->ticks_running++;
+
+        if (old_thread
+        && !old_thread->blocked
+        &&  old_thread != &thread
+        &&  old_thread != idle_thread) {
+
+            // We are switching away from a thread that isn't blocked.
+            // Make sure to re-enter it in the ready queue.
+            enqueue(*old_thread);
+        }
 
         // // Force-disable interrupts (for testing).
         // thread.frame.sys.eflags &= ~(1 << 9);
@@ -198,53 +291,14 @@ namespace Process {
         UNREACHABLE
     }
 
-    /// Add a thread to the ready queue.
-    static void enqueue(thread_t &t) {
-
-        enter_critical_section();
-
-        if (ready_last) {
-            ready_last->next_ready = &t;
-            ready_last             = &t;
-        } else {
-            // No ready queue yet - this must be the idle thread.
-            ready_last = &t;
-            if (current_thread_)
-                current_thread_->next_ready = &t;
-        }
-        t.next_ready = nullptr;
-        t.blocked = false;
-
-        leave_critical_section();
-    }
-
-    /// Add a thread to the front of the ready queue.
-    static void enqueue_front(thread_t &t) {
-
-        enter_critical_section();
-
-        t.next_ready = current_thread_->next_ready;
-        t.blocked    = false;
-
-        current_thread_->next_ready = &t;
-
-        if (!ready_last)
-            ready_last = &t;
-
-        leave_critical_section();
-    }
-
     void unblock(thread_t &t) {
 
         enter_critical_section();
-
-        // kprint("unblocked {}\n", t);
 
         if (t.blocked) {
             // This thread probably has something important to do, so push it
             // to the front of the queue.
             enqueue_front(t);
-            t.blocked = false;
         }
 
         leave_critical_section();
@@ -255,41 +309,82 @@ namespace Process {
 
         enter_critical_section();
 
-        // We decide which thread gets to run next:
-        //
-        // - If there is a thread in the ready queue that is not the idle
-        //   thread, run that thread.
-        // - Otherwise, keep running the current thread.
+        if (!scheduler_enabled_)
+            // Disregard the ready queue, run the idle thread.
+            dispatch(*idle_thread);
 
-        if (current_thread_->next_ready) {
-            // We are switching threads.
+        thread_t *next = dequeue();
 
-            thread_t *t = current_thread_->next_ready;
-
-            // Enqueue the current thread if it did not block.
-            if (!current_thread_->blocked)
-                enqueue(*current_thread_);
-
-            if (scheduler_enabled_ && t == idle_thread && t->next_ready) {
-                // The idle thread is up next, but there are other more useful
-                // threads waiting behind it.
-                // Skip the idle thread.
-                t = t->next_ready;
-
-                // Push the idle thread to the back of the queue (sorry~!).
-                enqueue(*idle_thread);
-            }
-
-            dispatch(*t);
+        if (next) {
+            // There is a thread in the ready queue, run it.
+            dispatch(*next);
 
         } else {
-            // There's nothing else to do currently, so we must keep the
-            // running thread active.
-            assert(!current_thread_->blocked, "no runnable threads");
-            // ^ the idle thread will never block, so this must always succeed.
-
-            dispatch(*current_thread_);
+            // No ready thread - keep running the current if possible,
+            // otherwise, run the idle thread.
+            if (current_thread_->blocked)
+                 dispatch(*idle_thread);
+            else dispatch(*current_thread_);
         }
+    }
+
+    void pause_userspace() {
+
+        enter_critical_section();
+
+        if (userspace_paused) {
+            leave_critical_section();
+            return;
+        }
+
+        userspace_paused       = true;
+        paused_userspace_queue = nullptr;
+
+        thread_t *last_paused  = nullptr;
+
+        if (!current_thread_) {
+            leave_critical_section();
+            return;
+        }
+
+        // Move userspace threads from the ready queue to the paused_userspace_queue.
+        for (thread_t *t = current_thread_
+            ;t
+            ;t = t->next_ready) {
+
+            thread_t *next = t->next_ready;
+
+            if (next) {
+                if (next->is_kernel_thread) {
+                    ready_last = next;
+                } else {
+                    if (!paused_userspace_queue)
+                         paused_userspace_queue  = next;
+                    else last_paused->next_ready = next;
+
+                    last_paused = next;
+                }
+            }
+        }
+        leave_critical_section();
+    }
+
+    void resume_userspace() {
+
+        enter_critical_section();
+
+        if (userspace_paused) {
+
+            userspace_paused = false;
+
+            if (paused_userspace_queue) {
+                // Move threads from the paused_userspace_queue back to the ready queue.
+                enqueue(*paused_userspace_queue);
+                paused_userspace_queue = nullptr;
+            }
+        }
+
+        leave_critical_section();
     }
 
     void save_frame(const Interrupt::interrupt_frame_t &frame) {
@@ -298,29 +393,29 @@ namespace Process {
 
     [[noreturn]]
     void yield_noreturn(bool block) {
-        // kprint("yield? (next: {}, frame: {})\n", current_thread_->next_ready, &frame);
-        // DEBUG_BREAK();
 
         // When this thread is resumed, make it return directly to the
         // interrupted code instead of returning to yield's caller.
-        // current_thread_->frame = frame;
 
         enter_critical_section();
 
         if (block) current_thread_->blocked = true;
 
         dispatch_next_thread();
+
+        UNREACHABLE
     }
 
     void yield(bool block) {
 
         enter_critical_section();
 
-        thread_t &t = *current_thread();
+        if (block) current_thread_->blocked = true;
 
-        if (block) t.blocked = true;
-
+        // Enter suspend.
         suspend_in_kernel();
+
+        // We've been resumed
 
         leave_critical_section();
     }
@@ -376,6 +471,9 @@ namespace Process {
             kernel_proc. last_thread = t;
         }
 
+        t->started    = false;
+        t->next_ready = nullptr;
+
         enqueue(*t);
 
         leave_critical_section();
@@ -399,24 +497,17 @@ namespace Process {
             dispatch(*idle_thread);
 
         } else {
-            // If not running, the idle thread must always be in the queue.
-            // Rotate the queue until the idle thread is in front,
-            // then switch to it.
-            while (current_thread_->next_ready != idle_thread) {
-                thread_t *next = current_thread_->next_ready;
-                assert(next, "idle thread not in ready queue");
-                current_thread_->next_ready = next->next_ready;
-                enqueue(*next);
-            }
+            idle_thread->next_ready = current_thread_->next_ready;
+            dispatch(*idle_thread);
         }
-
-        dispatch_next_thread();
     }
 
     void dump_ready_queue() {
         kprint("scheduler ready queue:\n");
         kprint("  {-4} {-4} {1} {8} {}\n", "PID", "TID", "S", "TICKS", "NAME");
-        for (thread_t *t = current_thread_
+
+        thread_t *t1 = current_thread_ ? current_thread_ : idle_thread;
+        for (thread_t *t = t1
             ;t
             ;t = t->next_ready) {
 

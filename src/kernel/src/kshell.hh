@@ -14,22 +14,13 @@
  */
 #pragma once
 
-#include "driver.hh"
+#include "common.hh"
+#include "ipc/queue.hh"
 
-/**
- * \namespace Driver::Vga
- *
- * Driver for a Bochs-compatible graphics adapter.
- *
- * Supported machines include Bochs, QEMU and VirtualBox.
- *
- * For other (non-virtual) graphics hardware, we need the help of the
- * bootloader to set a VBE graphics mode early on (not yet implemented), since
- * the protected mode interface that adapters provide is usually too limited to
- * support any interesting video modes.
- */
-namespace Driver::Vga {
+extern KQueue<char, 64> kshell_input;
 
-    void test(u16 w, u16 h);
-    void init();
-}
+void enable_kshell();
+// void disable_kshell();
+bool kshell_enabled();
+
+void kshell();

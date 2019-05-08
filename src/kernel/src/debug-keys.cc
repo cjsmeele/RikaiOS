@@ -37,5 +37,5 @@ void handle_debug_key(char ch) {
     else if (ch == '\x7f') kprint("\n** system reset **\n")
                          , Io::wait(1_M)
                          , Io::out_8(0x64, 0xfe);
-    //              ^ DEL char
+    //              ^ DEL char. ^ Reset via PS/2 controller.
 }

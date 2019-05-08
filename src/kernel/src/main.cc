@@ -15,11 +15,11 @@
 #include "common.hh"
 #include "boot/bootinfo.hh"
 #include "memory/memory.hh"
-// #include "memory/kernel-heap.hh"
 #include "interrupt/interrupt.hh"
 #include "driver/driver.hh"
 #include "process/proc.hh"
 #include "ipc/semaphore.hh"
+#include "kshell.hh"
 
 /**
  * \file
@@ -77,16 +77,20 @@ extern "C" void kmain(const boot_info_t &boot_info) {
 
     kprint("\neos-os is booting.\n\n");
 
+    // Io::wait(12_M);
+
     // Initialise subsystems.
     Interrupt::init();          // Configure the interrupt controller.
     Memory   ::init(boot_info); // Set up segments, enable paging.
     Process  ::init();          // Initialise the scheduler.
     Driver   ::init();          // Detect and initialise hardware.
 
-    kprint("\n(nothing to do - press ESC to crash and burn)\n\n");
+    Process::make_kernel_thread(kshell, "kshell");
 
-    Process::make_kernel_thread(test_a, "test-a");
-    Process::make_kernel_thread(test_b, "test-b");
+    kprint("\npress ESC in the serial terminal to enable the kernel shell\n\n");
+
+    // Process::make_kernel_thread(test_a, "test-a");
+    // Process::make_kernel_thread(test_b, "test-b");
 
     // (this is where we would load an 'init' process from disk and run it)
 

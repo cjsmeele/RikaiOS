@@ -67,9 +67,6 @@ namespace Driver::Input::Ps2 {
 
             char ch = key_to_char(key, false);
 
-            // kprint("{}", key_to_name(key));
-            // kprint("{}", ch);
-
             handle_debug_key(ch);
         }
     }

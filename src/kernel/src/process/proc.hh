@@ -160,6 +160,9 @@ namespace Process {
     [[noreturn]]
     void pause();
 
+    void  pause_userspace();
+    void resume_userspace();
+
     /// Re-enable scheduling.
     void resume();
 
