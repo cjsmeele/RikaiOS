@@ -70,13 +70,24 @@ static void run_command(StringView s) {
         kprint("\n  {-8} {}", "hello"   , "print 'Hello, World!'"                 );
         kprint("\n  {-8} {}", "help"    , "print this text"                       );
         kprint("\n  {-8} {}", "mbr"     , "read and print the master boot record" );
+        kprint("\n  {-8} {}", "mem"     , "print physical memory statistics"      );
         kprint("\n  {-8} {}", "ps"      , "print process information"             );
         kprint("\n  {-8} {}", "psr"     , "print ready queue"                     );
         kprint("\n  {-8} {}", "reboot"  , "reboot the machine"                    );
         kprint("\n  {-8} {}", "vgatest" , "test video modes"                      );
         kprint("\n\n");
     } else if (s == "vgatest") {
-        Driver::Vga::test(1024, 768);
+        struct Z { int w, h; };
+        for (auto [w,h] : Array { Z{ 640, 480}
+                                , Z{ 800, 600}
+                                , Z{1024, 768}
+                                , Z{1280, 720}
+                                , Z{1920,1080}
+                                , Z{ 320, 200} }) {
+
+            Driver::Vga::test(w, h);
+            Io::wait(10_M);
+        }
     } else if (s == "die") {
         crash();
     } else if (s == "reboot") {

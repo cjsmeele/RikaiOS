@@ -56,12 +56,17 @@ namespace Driver::Vga {
 
         // Paint the screen red.
         for (int i : range(w*h))
-            framebuffer[i] = 0x00ff0000;
+            framebuffer[i] = 0x00008080;
 
-        // Paint a 10x10 white square in the top left corner.
-        for (int y : range(10,20))
-            for (int x : range(10,20))
-                framebuffer[y*w+x] = 0x00ffffff;
+        // Paint a 10x10 white square in every corner.
+        for (int y : range(10)) {
+            for (int x : range(10)) {
+                framebuffer[                 (y+10)*w+(x+10)] = 0x00ffffff;
+                framebuffer[         (w-30) +(y+10)*w+(x+10)] = 0x00ffffff;
+                framebuffer[(h-30)*w        +(y+10)*w+(x+10)] = 0x00ffffff;
+                framebuffer[(h-30)*w+(w-30) +(y+10)*w+(x+10)] = 0x00ffffff;
+            }
+        }
     }
 
     void init() {
