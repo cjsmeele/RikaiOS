@@ -17,7 +17,10 @@
 #include <os-std/types.hh>
 #include <os-std/string.hh>
 
+/// Print a character to the kernel console.
 void kprint_char(char c);
+
+/// Initialize the kernel console (needs to be done only once).
 void kprint_init();
 
 /// Print a string.

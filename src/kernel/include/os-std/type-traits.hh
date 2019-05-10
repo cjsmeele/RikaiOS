@@ -198,6 +198,9 @@ namespace ostd {
             ? ~T(1 << (sizeof(T)*8-1)) : static_cast<T>(-1);
     };
 
+    template<bool b, typename T1, typename T2> struct if_                { using type = T1; };
+    template<        typename T1, typename T2> struct if_<false, T1, T2> { using type = T2; };
+
     template<typename T>
     struct function_type_t;
 

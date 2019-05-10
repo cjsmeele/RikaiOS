@@ -67,7 +67,8 @@ namespace Process {
 
         thread_t *prev_in_proc   = nullptr; ///< Points to another thread within the same proc.
         thread_t *next_in_proc   = nullptr; ///< Points to another thread within the same proc.
-        thread_t *next_ready     = nullptr; ///< Points to the next thread in the ready queue.
+        thread_t *prev_ready     = nullptr; ///< Points to the previous thread in the ready queue.
+        thread_t *next_ready     = nullptr; ///< Points to the next     thread in the ready queue.
 
         Interrupt::interrupt_frame_t frame; ///< Stores thread state when it's interrupted.
         Memory::Virtual::PageDir *page_dir; ///< Stores the thread's address space.
@@ -145,8 +146,14 @@ namespace Process {
 
     /**
      * Create a kernel thread.
+     *
+     * Thread functions can either be of type void() or void(int).
+     * In the latter case, you may pass an extra integer argument that will be
+     * the first argument of the thread. Use this to provide context
+     * information to the thread.
      */
-    thread_t *make_kernel_thread(function_ptr<void()> entrypoint, StringView name);
+    thread_t *make_kernel_thread(function_ptr<void(int)> entrypoint, StringView name, int arg = 0);
+    thread_t *make_kernel_thread(function_ptr<void(   )> entrypoint, StringView name);
 
     bool scheduler_enabled();
 
@@ -160,11 +167,21 @@ namespace Process {
     [[noreturn]]
     void pause();
 
+    /// Re-enable scheduling.
+    void resume();
+
     void  pause_userspace();
     void resume_userspace();
 
-    /// Re-enable scheduling.
-    void resume();
+    /**
+     * Removes a thread.
+     *
+     * If the thread is the last thread of a process, removes the process as well.
+     *
+     * If t is the currently running thread, this function will not return, but
+     * immediately dispatch the next ready thread instead.
+     */
+    void delete_thread(thread_t *t);
 
     /// Save the given frame as the resumption frame of the current thread.
     void save_frame(const Interrupt::interrupt_frame_t &frame);

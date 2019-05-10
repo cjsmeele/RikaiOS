@@ -16,12 +16,17 @@
 #include "idle.hh"
 #include "../interrupt/interrupt.hh"
 #include "../interrupt/frame.hh"
+#include "../memory/manager-virtual.hh"
 
 // Assembly functions that assist in saving and restoring register & stack
 // state for threads waiting in kernel-mode.
 extern "C" [[gnu::naked]]           void suspend_in_kernel();
 extern "C" [[            noreturn]] void suspend_2        (u32 *esp);
 extern "C" [[gnu::naked, noreturn]] void resume_in_kernel (u32 *esp);
+
+// Other assembly functions.
+extern "C" [[noreturn]] void delete_running_thread();
+extern "C" [[noreturn]] void delete_running_thread_2();
 
 namespace Process {
 
@@ -42,8 +47,9 @@ namespace Process {
     /// Process (PID 0) for all kernel threads.
     proc_t    kernel_proc;
 
-    /// The back of the ready queue (may be null when there is nothing to do
-    /// but idle).
+    /// The front of the ready queue (may be null when there is nothing to do but idle).
+    thread_t *ready_first = nullptr;
+    /// The back  of the ready queue (may be null when there is nothing to do but idle).
     thread_t *ready_last  = nullptr;
 
     /// When userspace is paused (only kthreads can run), userspace threads are
@@ -96,11 +102,17 @@ namespace Process {
     /// If no such thread exists, returns null.
     static thread_t *dequeue() {
 
-        if (current_thread_ && current_thread_->next_ready) {
+        if (ready_first) {
             // There is a thread in the ready queue.
-            thread_t *next = current_thread_->next_ready;
+            thread_t *next = ready_first;
+
+            ready_first = next->next_ready;
+            if (ready_first)
+                ready_first->prev_ready = nullptr;
+
             // Break the link.
-            current_thread_->next_ready = nullptr;
+            next->prev_ready = nullptr;
+            next->next_ready = nullptr;
 
             // Update ready_last.
             if (ready_last == next)
@@ -119,28 +131,25 @@ namespace Process {
 
         if (userspace_paused && !t.is_kernel_thread) {
             // userspace is paused, add this thread to the paused queue instead.
-            if (paused_userspace_queue)
-                 t.next_ready = paused_userspace_queue;
-            else t.next_ready = nullptr;
-            paused_userspace_queue = &t;
-        }
-
-        if (ready_last) {
-            ready_last->next_ready = &t;
-            ready_last             = &t;
-        } else {
-            ready_last = &t;
-
-            if (current_thread_) {
-                current_thread_->next_ready = &t;
+            if (paused_userspace_queue) {
+                t.next_ready = paused_userspace_queue;
+                t.prev_ready = nullptr;
+                paused_userspace_queue->prev_ready = &t;
             } else {
-                // No current thread yet, append to idle thread.
-                idle_thread->next_ready = &t;
+                t.next_ready = nullptr;
+                t.prev_ready = nullptr;
             }
-        }
-        // t.next_ready = nullptr;
-        t.blocked    = false;
+            paused_userspace_queue = &t;
+        } else {
+            t.prev_ready = ready_last;
 
+            if (ready_last)   ready_last->next_ready = &t;
+            if (!ready_first) ready_first            = &t;
+
+            ready_last  = &t;
+        }
+
+        t.blocked = false;
         leave_critical_section();
     }
 
@@ -150,17 +159,25 @@ namespace Process {
         enter_critical_section();
 
         if (!t.is_kernel_thread && userspace_paused) {
-            UNIMPLEMENTED
+            if (paused_userspace_queue) {
+                t.next_ready = paused_userspace_queue;
+                t.prev_ready = nullptr;
+                paused_userspace_queue->prev_ready = &t;
+            } else {
+                t.next_ready = nullptr;
+                t.prev_ready = nullptr;
+            }
+            paused_userspace_queue = &t;
+        } else {
+            t.next_ready = ready_first;
+
+            if (ready_first) ready_first->prev_ready = &t;
+            if (!ready_last) ready_last = &t;
+
+            ready_first  = &t;
         }
 
-        t.next_ready = current_thread_->next_ready;
-        t.blocked    = false;
-
-        current_thread_->next_ready = &t;
-
-        if (!ready_last)
-            ready_last = &t;
-
+        t.blocked = false;
         leave_critical_section();
     }
 
@@ -178,7 +195,7 @@ namespace Process {
         //        ,&thread.frame
         //        ,thread.frame);
 
-        if (current_thread_ && current_thread_->page_dir != thread.page_dir) {
+        if (&Memory::Virtual::current_dir() != thread.page_dir) {
             // This thread lives in a different address space than the current
             // thread, se we switch to it first.
 
@@ -278,7 +295,7 @@ namespace Process {
                     \n pop %%fs                                                    \
                     \n pop %%es                                                    \
                     \n pop %%ds                                                    \
-                    \n /* Note: this popa does *not* restare esp */                \
+                    \n /* Note: this popa does *not* restore esp */                \
                     \n popal                                                       \
                     \n /* Skip over int_no and error_code */                       \
                     \n add $8, %%esp                                               \
@@ -322,9 +339,9 @@ namespace Process {
         } else {
             // No ready thread - keep running the current if possible,
             // otherwise, run the idle thread.
-            if (current_thread_->blocked)
-                 dispatch(*idle_thread);
-            else dispatch(*current_thread_);
+            if (current_thread_ && !current_thread_->blocked)
+                 dispatch(*current_thread_);
+            else dispatch(*idle_thread);
         }
     }
 
@@ -347,25 +364,14 @@ namespace Process {
             return;
         }
 
-        // Move userspace threads from the ready queue to the paused_userspace_queue.
-        for (thread_t *t = current_thread_
+        for (thread_t *t = ready_first
             ;t
             ;t = t->next_ready) {
 
-            thread_t *next = t->next_ready;
-
-            if (next) {
-                if (next->is_kernel_thread) {
-                    ready_last = next;
-                } else {
-                    if (!paused_userspace_queue)
-                         paused_userspace_queue  = next;
-                    else last_paused->next_ready = next;
-
-                    last_paused = next;
-                }
-            }
+            if (!t->is_kernel_thread)
+                UNIMPLEMENTED
         }
+
         leave_critical_section();
     }
 
@@ -433,7 +439,27 @@ namespace Process {
         return process_count++;
     }
 
+    /// Entrypoint for all newly created threads.
+    [[gnu::naked]]
+    static void threadpoline() {
+        asm volatile ("/* Save thread pointer */                              \
+                    \n push %%ecx                                             \
+                    \n /* Call entrypoint with arg */                         \
+                    \n push %%ebx                                             \
+                    \n call *%%eax                                            \
+                    \n add $4, %%esp                                          \
+                    \n xchg %%bx, %%bx                                        \
+                    \n /* Call delete_thread with the saved thread pointer */ \
+                    \n call (%0)"
+                    :: "m" (delete_thread));
+    }
+
     thread_t *make_kernel_thread(function_ptr<void()> entrypoint, StringView name) {
+        // eww.
+        return make_kernel_thread(reinterpret_cast<function_ptr<void(int)>>(entrypoint), name, 0);
+    }
+
+    thread_t *make_kernel_thread(function_ptr<void(int)> entrypoint, StringView name, int arg) {
 
         enter_critical_section();
 
@@ -444,7 +470,6 @@ namespace Process {
 
         t->id               = genereate_thread_id();
         t->name             = name;
-        t->frame.sys.eip    = (addr_t)entrypoint;
         t->proc             = &kernel_proc;
         t->is_kernel_thread = true;
 
@@ -454,12 +479,20 @@ namespace Process {
         // Enable interrupts for the new kernel thread.
         // (without touching reserved flags)
         t->frame.sys.eflags = (asm_eflags() & 0xffc0'802a) | 1 << 9;
+
+        // Set segment registers.
         t->frame.sys. cs    = asm_cs();
         t->frame.regs.ss    = asm_ss();
         t->frame.regs.ds    = asm_ds();
         t->frame.regs.es    = asm_es();
         t->frame.regs.fs    = asm_fs();
         t->frame.regs.gs    = asm_gs();
+
+        // Give context to the threadpoline.
+        t->frame.regs.eax   = (addr_t)entrypoint;
+        t->frame.regs.ebx   = arg;
+        t->frame.regs.ecx   = (addr_t)t;
+        t->frame.sys.eip    = (addr_t)threadpoline;
 
         if (kernel_proc.last_thread) {
             kernel_proc.last_thread->next_in_proc = t;
@@ -481,6 +514,43 @@ namespace Process {
         return t;
     }
 
+    void delete_thread(thread_t *t) {
+
+        enter_critical_section();
+
+        if (t == idle_thread)
+            panic("someone tried to kill the idle thread - please don't, i need that!");
+
+        if (!t->next_in_proc && !t->prev_in_proc) {
+
+            // Delete an entire process.
+            UNIMPLEMENTED
+        }
+
+        // Update linked lists.
+        if (t->next_ready)   t->next_ready  ->prev_ready   = t->prev_ready;
+        if (t->prev_ready)   t->prev_ready  ->next_ready   = t->next_ready;
+        if (t->next_in_proc) t->next_in_proc->prev_in_proc = t->prev_in_proc;
+        if (t->prev_in_proc) t->prev_in_proc->next_in_proc = t->next_in_proc;
+
+        if (ready_last  == t) ready_last  = t->prev_ready;
+        if (ready_first == t) ready_first = t->next_ready;
+
+        if (t == current_thread_) {
+            // We are deleting the currently running thread.
+            // This is a bit more involved.
+            delete_running_thread();
+
+            UNREACHABLE
+
+        } else {
+            // Simply de-allocate and move on.
+            delete t; // *poof*
+        }
+
+        leave_critical_section();
+    }
+
     void resume() {
         scheduler_enabled_ = true;
     }
@@ -492,22 +562,15 @@ namespace Process {
 
         scheduler_enabled_ = false;
 
-        if (current_thread_ == idle_thread) {
-            // Re-enter idle thread immediately.
-            dispatch(*idle_thread);
-
-        } else {
-            idle_thread->next_ready = current_thread_->next_ready;
-            dispatch(*idle_thread);
-        }
+        // Re-enter idle thread immediately.
+        dispatch(*idle_thread);
     }
 
     void dump_ready_queue() {
         kprint("scheduler ready queue:\n");
         kprint("  {-4} {-4} {1} {8} {}\n", "PID", "TID", "S", "TICKS", "NAME");
 
-        thread_t *t1 = current_thread_ ? current_thread_ : idle_thread;
-        for (thread_t *t = t1
+        for (thread_t *t = ready_first
             ;t
             ;t = t->next_ready) {
 
@@ -582,11 +645,13 @@ void suspend_in_kernel() {
                 \n push %%fs                       \
                 \n push %%gs                       \
                 \n push %%esp                      \
-                \n call suspend_2" ::);
+                \n call suspend_2"
+                :: "m" (suspend_2));
 }
 
 /// Second part of suspend_in_kernel().
-extern "C" [[noreturn]] void suspend_2(u32 *kernel_resume_esp) {
+extern "C" [[noreturn]]
+void suspend_2(u32 *kernel_resume_esp) {
     // kprint("suspend esp {}\n", kernel_resume_esp);
     // hex_dump(kernel_resume_esp, 64, true);
 
@@ -608,4 +673,35 @@ void resume_in_kernel(u32*) {
                 \n popal                                                      \
                 \n popfl                                                      \
                 \n ret" ::);
+}
+
+extern "C" [[noreturn]]
+void delete_running_thread() {
+    // Destroying the running thread including its stack while we are still
+    // running on it probably works, but is a little irresponsible.
+    //
+    // Instead we create a (static) stack that we switch to right
+    // before deleting ourselves, for the single purpose of dispatching
+    // the next thread.
+    //
+    // Switching stacks in the middle of a function is a bit too tricky to do
+    // in pure C++, unfortunately.
+
+    static Array<u8, 256> temp_stack;
+
+    asm volatile ("mov %0, %%esp \
+                \n call delete_running_thread_2"
+                :: "r" (temp_stack.data() + temp_stack.size()));
+
+    UNREACHABLE
+}
+
+extern "C" [[noreturn]]
+void delete_running_thread_2() {
+    delete Process::current_thread_;
+    Process::current_thread_ = nullptr;
+
+    // It may be too late to write a testament, but we can still
+    // appoint a thread to inherit the CPU from us.
+    Process::dispatch_next_thread();
 }

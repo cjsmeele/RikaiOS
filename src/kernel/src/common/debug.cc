@@ -46,7 +46,7 @@ int rand() {
 void hex_dump(void *p_, size_t size, bool as32) {
     u8 *p = (u8*)((addr_t)p_ & ~0xf);
 
-    for (size_t i : range(0, size + ((u8*)p_ - p), 16)) {
+    for (size_t i : range(0U, size + ((u8*)p_ - p), 16)) {
 
         String<16> str { };
         for (size_t j : range(16))

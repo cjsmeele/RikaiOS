@@ -48,22 +48,28 @@ static void test_a() {
     }
 }
 
-static void test_b() {
-    size_t size = 20;
+static void test_b(int x) {
 
-    for (u64 i = 0;; ++i) {
-        Io::wait(100); // some microseconds to get interrupted (so we don't stall the machine).
-        if (i % size == 0) {
-            mutex.lock();
-        } else if (i % size == size - 1) {
-            kprint("(B done)\n");
-            mutex.unlock();
-            Process::yield(); // give A some time to capture the mutex.
-        } else {
-            kprint("B");
-            // Process::yield();
-        }
-    }
+    kprint("B! {}\n", x);
+    Io::wait(40_M);
+
+    return; // see if we can cleanly exit this thread.
+
+    // size_t size = 20;
+    //
+    // for (u64 i = 0;; ++i) {
+    //     Io::wait(100); // some microseconds to get interrupted (so we don't stall the machine).
+    //     if (i % size == 0) {
+    //         mutex.lock();
+    //     } else if (i % size == size - 1) {
+    //         kprint("(B done)\n");
+    //         mutex.unlock();
+    //         Process::yield(); // give A some time to capture the mutex.
+    //     } else {
+    //         kprint("B");
+    //         // Process::yield();
+    //     }
+    // }
 }
 
 // }}}
@@ -85,12 +91,12 @@ extern "C" void kmain(const boot_info_t &boot_info) {
     Process  ::init();          // Initialise the scheduler.
     Driver   ::init();          // Detect and initialise hardware.
 
-    Process::make_kernel_thread(kshell, "kshell");
+    Process::make_kernel_thread(Kshell::kshell, "kshell");
 
     kprint("\npress ESC in the serial terminal to enable the kernel shell\n\n");
 
     // Process::make_kernel_thread(test_a, "test-a");
-    // Process::make_kernel_thread(test_b, "test-b");
+    Process::make_kernel_thread(test_b, "test-b", 5);
 
     // (this is where we would load an 'init' process from disk and run it)
 

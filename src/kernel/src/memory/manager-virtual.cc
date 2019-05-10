@@ -71,7 +71,7 @@ namespace Memory::Virtual {
     PageDir *current_dir_ = nullptr;
 
     /// Get the current page directory.
-    static PageDir &current_dir() {
+    PageDir &current_dir() {
         if (paging_enabled)
              return *current_dir_;
         else return  kernel_dir;
@@ -315,6 +315,13 @@ namespace Memory::Virtual {
 
                 if (addr < Layout::kernel_image().start
                          + Layout::kernel_image().size) {
+
+                    if (addr == 0)
+                        // Skip the first 4 KiB page.
+                        // This makes detecting null-pointer dereferences easier by
+                        // triggering pagefaults.
+                        // As a side effect, the BIOS Data Area (at 0x400) becomes inaccessible.
+                        continue;
 
                     page = make_pte(addr, flag_present | flag_writable);
 

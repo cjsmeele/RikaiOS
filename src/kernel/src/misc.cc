@@ -58,7 +58,6 @@ extern "C" void *memset(void *s, char c, size_t n) {
         return Memory::Heap::alloc(size, static_cast<uli32>(align));
     }
 #else
-#pragma GCC diagnostic ignored "-Wsized-deallocation"
     void *operator new     (uli32 size) { return Memory::Heap::alloc(size, 4); }
     void *operator new[]   (uli32 size) { return Memory::Heap::alloc(size, 4); }
 
@@ -69,5 +68,7 @@ extern "C" void *memset(void *s, char c, size_t n) {
     }
 #endif
 
-void  operator delete  (void *ptr)   { Memory::Heap::free(ptr); }
-void  operator delete[](void *ptr)   { Memory::Heap::free(ptr); }
+void  operator delete  (void *ptr)        { Memory::Heap::free(ptr); }
+void  operator delete[](void *ptr)        { Memory::Heap::free(ptr); }
+void  operator delete  (void *ptr, uli32) { Memory::Heap::free(ptr); }
+void  operator delete[](void *ptr, uli32) { Memory::Heap::free(ptr); }

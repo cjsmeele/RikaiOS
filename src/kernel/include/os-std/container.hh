@@ -226,47 +226,54 @@ namespace ostd {
      *     => 1
      *     => 2
      */
-    template<typename T = size_t>
+    template<typename T = int>
     struct Range {
 
-        T start;
-        T step;
-        T stop;
+        using T1 = T;
+        using T2 = T;
+
+        T1  start;
+        T2  stop;
+        int step;
+
+        struct end_marker_t {};
 
         struct It {
-            T val;
-            T step;
-            T stop;
+            using Val = T1;
+
+            Val val;
+            T2  stop;
+            int step;
 
             constexpr It &operator++() {
                 val += step;
                 return *this;
             }
-            constexpr T operator*() const { return val; }
-            constexpr bool operator==(const It &o) const {
-                if (o.val == stop)
-                     return val >= stop;
-                else return val == o.val;
-            }
+            constexpr Val operator*() const { return val; }
+            constexpr bool operator==(const It &o) const { return val == o.val; }
             constexpr bool operator!=(const It &o) const { return !(*this == o); }
+
+            constexpr bool operator==(end_marker_t) const {
+                return step >= 0 ? val >= stop : val <= stop;
+            }
+            constexpr bool operator!=(end_marker_t) const { return !(*this == end_marker_t{}); }
         };
 
-        constexpr It begin() const { return { start, step, stop }; }
-        constexpr It end()   const { return { stop,  step, stop }; }
+        constexpr It         begin() const { return { start, stop, step }; }
+        constexpr end_marker_t end() const { return { }; }
 
-        constexpr Range(T start_, T stop_, T step_ = 1)
+        constexpr Range(T1 start_, T2 stop_, int step_ = 1)
             : start(start_)
-            , step (step_ )
-            , stop(stop_) { }
+            , stop (stop_)
+            , step (step_ ) { }
     };
 
     /// \see Range
-    template<typename T, typename T2>
-    constexpr Range<T> range(T start, T2 stop, T step = 1) {
-        return { start, T(stop), step };
+    template<typename T1, typename T2>
+    constexpr Range<T2> range(T1 start, T2 stop, int step = 1) {
+        return { static_cast<T2>(start), stop, step };
     }
 
     /// \see Range
-    template<typename T = size_t>
-    constexpr Range<T> range(T count) { return range(T(0), count); }
+    constexpr Range<size_t> range(size_t count) { return range(0U, count, 1); }
 }

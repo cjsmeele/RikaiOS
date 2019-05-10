@@ -30,12 +30,13 @@ namespace Driver::Uart {
     static void irq_handler(const interrupt_frame_t &) {
         char ch = Io::in_8(0x3f8);
 
-        if (kshell_enabled()) {
-            if (!kshell_input.try_enqueue(ch)) {
+        if (Kshell::enabled()) {
+            if (!Kshell::input.try_enqueue(ch)) {
                 dprint("kshell input queue full, char dropped\n");
             }
         } else if (ch == 0x1b) {
-            enable_kshell();
+            // ESC pressed.
+            Kshell::enable();
         } else {
             handle_debug_key(ch);
         }

@@ -109,19 +109,26 @@ namespace ostd {
 
         // Trim whitespace at the end of the string.
         constexpr void rtrim() {
-            for (ssize_t i = Nchars-1; i >= 0; --i) {
-                if (!data_[i] || data_[i] == ' ') {
-                    if ((size_t)i < length_)
-                        --length_;
-                    data_[i] = 0;
-                } else {
-                    return;
-                }
+            for (ssize_t i : range(length_-1, -1, -1)) {
+                if (data_[i] != ' ')
+                    break;
+
+                data_[i] = 0;
+                --length_;
             }
         }
 
         constexpr bool operator==(StringView o) const;
         constexpr bool operator!=(StringView o) const;
+
+        template<size_t N2>
+        constexpr bool operator==(const char (&o)[N2]) const {
+            return *this == StringView(o, N2-1);
+        }
+        template<size_t N2>
+        constexpr bool operator!=(const char (&o)[N2]) const {
+            return *this != StringView(o, N2-1);
+        }
 
         constexpr String &operator=(const char *o) {
             for (length_ = 0
@@ -297,7 +304,6 @@ namespace ostd {
     constexpr bool String<N>::operator!=(StringView o) const {
         return StringView(*this) != o;
     }
-
 
     namespace Format {
         template<typename F>

@@ -17,10 +17,28 @@
 #include "common.hh"
 #include "ipc/queue.hh"
 
-extern KQueue<char, 64> kshell_input;
+/**
+ * Kernel built-in debug shell.
+ *
+ * This provides a minimal command-line shell for debugging purposes.
+ *
+ * To use the shell, attach a serial cable (or use your host terminal when
+ * running with QEMU) and press ESC in your serial terminal.
+ *
+ * Use the `help` command to get a list of available shell commands.
+ */
+namespace Kshell {
 
-void enable_kshell();
-// void disable_kshell();
-bool kshell_enabled();
+    /// Input characters. Read by kshell, written by the serial/uart driver.
+    extern KQueue<char, 64> input;
 
-void kshell();
+    /// Pauses all userspace threads and enables the kernel shell on the serial port.
+    /// (there is no disable - the shell can only be disabled using shell commands)
+    void enable();
+
+    /// Ask if the shell is running.
+    bool enabled();
+
+    /// kshell thread function.
+    void kshell();
+}

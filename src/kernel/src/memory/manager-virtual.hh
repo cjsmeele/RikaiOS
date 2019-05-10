@@ -94,6 +94,9 @@ namespace Memory::Virtual {
     using PageTab = Array<pte_t,1024>;
     ///@}
 
+    /// Get the current page directory.
+    PageDir &current_dir();
+
     /// note: virt and size must be page-aligned.
     addr_t map(addr_t virt, addr_t phy, size_t size, u32 flags);
 
