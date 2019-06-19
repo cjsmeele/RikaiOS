@@ -10,22 +10,28 @@
 - llvm
 - clang
 - parted
-- qemu (if you are running with QEMU)
+- mtools
+- qemu  (if you are running with QEMU)
 - bochs (if you are running with Bochs)
 
 ** Repo structure
 
-| *Directory*   | *Description*                      |
-|---------------|------------------------------------|
-| ~/boot~       | Bootloader (bootsector and stage2) |
-| ~/boot/utils~ | Bootloader installer               |
-| ~/kernel~     | Kernel code                        |
+| *Directory*           | *Description*                          |
+|-----------------------|----------------------------------------|
+| ~/src/boot~           | Bootloader (bootsector and stage2)     |
+| ~/src/boot/utils~     | Bootloader installer                   |
+| ~/src/kernel~         | Kernel code                            |
+| ~/src/kernel/include~ | Kernel headers exposed to userland     |
+| ~/src/user~           | Userland software                      |
+| ~/src/user/libsys~    | Userland C++ system library            |
+| ~/src/disk~           | (FAT32) Filesystem available to the OS |
 
-| *Makefile*               | *Description*                                            |
-|--------------------------|----------------------------------------------------------|
-| ~/Makefile~              | Builds everything, creates boot disks and runs emulators |
-| ~/boot/Makefile~         | Builds bootloader and installer                          |
-| ~/kernel/Makefile~       | Builds kernel                                            |
+| *Makefile*                   | *Description*                                            |
+|------------------------------|----------------------------------------------------------|
+| ~/src/Makefile~              | Builds everything, creates boot disks and runs emulators |
+| ~/src/boot/Makefile~         | Builds bootloader and installer                          |
+| ~/src/kernel/Makefile~       | Builds kernel                                            |
+| ~/src/user/Makefile~         | Builds userland                                          |
 
 Every Makefile above includes (if available) a ~Makefile.local~ file in the
 same directory. This allows you to override any toolchain executable names and
@@ -51,9 +57,9 @@ To enable acceleration using kvm, run:
 
 In order to run in Virtualbox, do the following:
 
-- Make a disk using the =qcow= target:
+- Make a disk using the =vdi= target:
 
-: make qcow
+: make vdi
 
 Then:
 
@@ -63,9 +69,12 @@ Then:
 - Go to VM settings -> Storage
   - Remove the SATA controller, if it exists.
   - Create an IDE controller with default settings
-  - Add the =disk.qcow= file as an IDE disk
+  - Add the =disk.vdi= file as an IDE disk
 
 Now you should be able to start the VM through virtualbox.
+
+Note that serial I/O may be difficult to get to work. The current OS version
+does not interact much with the screen and keyboard by default.
 
 # in the future we should auto-generate importable vm configurations, or
 # something.

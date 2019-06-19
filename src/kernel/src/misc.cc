@@ -13,6 +13,7 @@
  * limitations under the License.
  */
 #include <os-std/types.hh>
+#include "common/new-delete.hh"
 #include "memory/kernel-heap.hh"
 
 /** \file
@@ -32,43 +33,48 @@ extern "C" void __cxa_pure_virtual() {
 extern "C" void __cxa_atexit(void (*)(void*), void*, void*);
 extern "C" void __cxa_atexit(void (*)(void*), void*, void*) { }
 
-/// \name These are required by (clang) builtins
+/// \name These are required by compiler builtins.
 ///@{
-extern "C" void *memcpy(void *__restrict dst, const void *__restrict src, size_t n) {
+extern "C" void *memcpy(void *__restrict dst, const void *__restrict src, malloc_size_t n) {
     for (size_t i = 0; i < n; ++i)
         ((u8*)dst)[i] = ((u8*)src)[i];
     return dst;
 }
 
-extern "C" void *memset(void *s, char c, size_t n) {
+extern "C" void *memset(void *s, int c, malloc_size_t n) {
     for (size_t i = 0; i < n; ++i)
         ((char*)s)[i] = c;
     return s;
 }
 ///@}
 
+/// \name C++ memory allocation operators.
+///@{
 
-#ifdef __clang__
-    void *operator new     (size_t size) { return Memory::Heap::alloc(size, 4); }
-    void *operator new[]   (size_t size) { return Memory::Heap::alloc(size, 4); }
+// Basic new and new[].
+void *operator new      (malloc_size_t size) { return Memory::Heap::alloc(size, 4); }
+void *operator new[]    (malloc_size_t size) { return Memory::Heap::alloc(size, 4); }
 
-    namespace std { enum class align_val_t : size_t {}; }
-    void *operator new(size_t size, std::align_val_t align) {
-        asm volatile ("xchg %bx, %bx");
-        return Memory::Heap::alloc(size, static_cast<uli32>(align));
-    }
-#else
-    void *operator new     (uli32 size) { return Memory::Heap::alloc(size, 4); }
-    void *operator new[]   (uli32 size) { return Memory::Heap::alloc(size, 4); }
+// Basic delete and delete[].
+void  operator delete  (void *ptr)                { Memory::Heap::free(ptr); }
+void  operator delete[](void *ptr)                { Memory::Heap::free(ptr); }
 
-    namespace std { enum class align_val_t : uli32 {}; }
-    void *operator new(uli32 size, std::align_val_t align) {
-        asm volatile ("xchg %bx, %bx");
-        return Memory::Heap::alloc(size, static_cast<uli32>(align));
-    }
-#endif
+// "sized" delete, for possibly more efficient deallocations.
+// We don't care - we keep track of the allocated size ourselves.
+void  operator delete  (void *ptr, malloc_size_t) { Memory::Heap::free(ptr); }
+void  operator delete[](void *ptr, malloc_size_t) { Memory::Heap::free(ptr); }
 
-void  operator delete  (void *ptr)        { Memory::Heap::free(ptr); }
-void  operator delete[](void *ptr)        { Memory::Heap::free(ptr); }
-void  operator delete  (void *ptr, uli32) { Memory::Heap::free(ptr); }
-void  operator delete[](void *ptr, uli32) { Memory::Heap::free(ptr); }
+// Aligned new. Returns pointers of the given alignment.
+// (currently only supports chaotic neutral alignment)
+void *operator new(malloc_size_t size, std::align_val_t align) {
+    return Memory::Heap::alloc(size, static_cast<malloc_size_t>(align));
+}
+
+// Placement new and delete.
+// These construct objects in-place without allocating memory.
+void *operator new      (malloc_size_t, void *p) { return p; }
+void *operator new[]    (malloc_size_t, void *p) { return p; }
+void  operator delete   (void*, void*) { }
+void  operator delete[] (void*, void*) { }
+
+///@}

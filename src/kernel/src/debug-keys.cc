@@ -20,8 +20,8 @@
 #include "process/proc.hh"
 
 void handle_debug_key(char ch) {
-         if (ch == '\x1b') kprint("ESC"), crash();
-    else if (ch == '1')    Memory::Physical::dump_stats();
+    // if (ch == '\x1b') kprint("ESC"), crash();
+         if (ch == '1')    Memory::Physical::dump_stats();
     else if (ch == '2')    Memory::Physical::dump_bitmap();
     else if (ch == '3')    kprint("<debug3>"); // <- todo: VMM debug keys.
     else if (ch == '4')    (void)Memory::Heap::alloc(1000, 8);

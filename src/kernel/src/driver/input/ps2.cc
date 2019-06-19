@@ -17,6 +17,10 @@
 #include "../../debug-keys.hh"
 #include "ps2/protocol.hh"
 #include "ps2/scancodes.hh"
+#include "filesystem/vfs.hh"
+#include "ipc/queue.hh"
+
+#include "../../kshell.hh"
 
 DRIVER_NAME("ps2");
 
@@ -24,6 +28,8 @@ namespace Driver::Input::Ps2 {
 
     using namespace Interrupt;
     using namespace Protocol;
+
+    static bool dvorak_enabled = false;
 
     static bool have_mouse    = false;
     static bool have_keyboard = false;
@@ -33,6 +39,19 @@ namespace Driver::Input::Ps2 {
     // from the keyboard.
     static bool kb_have_escape  = false;
     static bool kb_have_release = false;
+
+    static bool kb_control_pressed = false;
+    static bool kb_shift_pressed   = false;
+    static bool kb_alt_pressed     = false;
+
+    struct mouse_event_t {
+        s16 move_x;
+        s16 move_y;
+        u8 buttons;
+    };
+
+    KQueue<mouse_event_t, 32> mouse_events;
+    KQueue<char, 32>          keyboard_input;
 
     /// Interrupt handler for keyboard events.
     static void irq_handler_keyboard(const interrupt_frame_t &) {
@@ -49,6 +68,20 @@ namespace Driver::Input::Ps2 {
                 continue;
             }
 
+            Key key;
+
+            if (kb_have_escape)
+                 key = keys_escaped[scancode];
+            else key = keys_normal [scancode];
+
+            if (dvorak_enabled)
+                key = keymap_dvorak[(size_t)key];
+
+            // Update modifier keys.
+            if (key == Key::LShift   || key == Key::RShift)   kb_shift_pressed   = !kb_have_release;
+            if (key == Key::LControl || key == Key::RControl) kb_control_pressed = !kb_have_release;
+            if (key == Key::LAlt     || key == Key::RAlt)     kb_alt_pressed     = !kb_have_release;
+
             // Ignore key releases for now.
             if (kb_have_release) {
                 kb_have_release = false;
@@ -56,18 +89,27 @@ namespace Driver::Input::Ps2 {
                 continue;
             }
 
-            Key key;
-
-            if (kb_have_escape)
-                 key = keys_escaped[scancode];
-            else key = keys_normal [scancode];
-
             kb_have_release = false;
             kb_have_escape  = false;
 
-            char ch = key_to_char(key, false);
+            if (key == Key::F12) {
+                dvorak_enabled = !dvorak_enabled;
+                dprint("dvorak keyboard translation {}\n", dvorak_enabled ? "enabled" : "disabled");
+                continue;
+            }
 
-            handle_debug_key(ch);
+            char ch = key_to_char(key, kb_shift_pressed, kb_control_pressed, kb_alt_pressed);
+
+            if (Kshell::want_all_input()) {
+                if (!Kshell::input.try_enqueue(ch))
+                    dprint("kshell input queue full, char dropped\n");
+            } else if (!Kshell::enabled() && (key == Key::F1 || key == Key::Esc)) {
+                Kshell::enable();
+            } else {
+                handle_debug_key(ch);
+                if (ch)
+                    keyboard_input.try_enqueue(ch);
+            }
         }
     }
 
@@ -124,9 +166,80 @@ namespace Driver::Input::Ps2 {
                     cx = cx2;
                     cy = cy2;
                 }
+
+                mouse_event_t event { (s16)xm
+                                    , (s16)ym
+                                    , (u8)((u8)left | (u8)middle << 1 | (u8)right << 2) };
+
+                mouse_events.try_enqueue(event);
             }
         }
     }
+
+    // Device /dev/mouse
+    struct mouse_dev_t : public DevFs::device_t {
+
+        ssize_t read (u64, void *buffer_, size_t nbytes) override {
+
+            char  *buffer  = (char*)buffer_;
+            size_t written = 0;
+
+            // Always read exactly one event.
+            mouse_event_t event = mouse_events.dequeue();
+
+            String<32> event_text;
+            fmt(event_text, "{} {}\n"
+               ,event.move_x, event.move_y);
+
+            for (char c : event_text) {
+                if (written >= nbytes)
+                    break;
+                buffer[written++] = c;
+            }
+
+            return written;
+        }
+        ssize_t write(u64, const void*, size_t) override {
+            return ERR_nospace;
+        }
+        s64 size() override { return 0; }
+    };
+    static mouse_dev_t mouse_dev;
+
+    // Device /dev/keyboard
+    struct keyboard_dev_t : public DevFs::device_t {
+
+        ssize_t read (u64, void *buffer_, size_t nbytes) override {
+
+            char  *buffer  = (char*)buffer_;
+            size_t written = 0;
+
+            while (written < nbytes) {
+                char c = keyboard_input.dequeue();
+                // Translate carriage return to newline.
+                if (c == '\r') c = '\n';
+
+                if (written == 0 && c == ascii_ctrl('D')) {
+                    // ^D, or EOT, indicates end-of-file.
+                    // (if encountered in the middle of a line, the character is passed on as-is)
+                    return 0;
+                }
+
+                buffer[written++] = c;
+                if (c == '\n')
+                    // Automatic line buffering: Return early on newline.
+                    return written;
+            }
+
+            return written;
+        }
+        ssize_t write(u64, const void*, size_t) override {
+            return ERR_nospace;
+        }
+        s64 size() override { return 0; }
+    };
+    static keyboard_dev_t keyboard_dev;
+
 
     void init() {
 
@@ -136,14 +249,20 @@ namespace Driver::Input::Ps2 {
         have_mouse    = result.have_mouse;
         mouse_type    = result.mouse_type;
 
+        DevFs *devfs = Vfs::get_devfs();
+
         // Register our handlers.
         if (have_keyboard) {
             dprint("ps2:0: keyboard detected\n");
             Handler::register_irq_handler( 1, irq_handler_keyboard);
+
+            if (devfs) devfs->register_device("keyboard", keyboard_dev, 0400);
         }
         if (have_mouse) {
             dprint("ps2:1: mouse detected\n");
             Handler::register_irq_handler(12, irq_handler_mouse);
+
+            if (devfs) devfs->register_device("mouse", mouse_dev, 0400);
         }
 
         flush();

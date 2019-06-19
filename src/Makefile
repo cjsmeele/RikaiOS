@@ -25,6 +25,7 @@ else
     MAKEFLAGS += --no-print-directory
 endif
 
+# QEMU     = qemu-system-i386 -full-screen
 QEMU     = qemu-system-i386
 QEMU_KVM = qemu-system-x86_64 -enable-kvm -cpu max
 QEMU_IMG = qemu-img
@@ -67,11 +68,14 @@ QEMUFLAGS_DEBUG =                                          \
     -display $(QEMU_DISPLAY)                               \
     -S -gdb tcp::1133
 
-.PHONY: build doc rebuild boot kernel disk qcow run debug qemu qemu-kvm bochs clean
+.PHONY: build user doc rebuild boot kernel disk qcow run debug qemu qemu-kvm bochs clean
 
 -include Makefile.local
 
 build: boot kernel
+
+user:
+	$(Q)$(MAKE) -C user all
 
 doc:
 	$(Q)$(MAKE) -C kernel doc
@@ -102,7 +106,7 @@ bochs: $(DISK_IMG)
 	$(Q)rm -f $(DISK_IMG).lock
 	$(BOCHS) -q -f $(BOCHSRC)
 
-disk: build
+disk: build user
 	$(F)$(DISK_IMG)
 	$(Q)./mkdisk.sh $(DISK_IMG) $(DISK_SIZE_M)
 	$(Q)./boot/utils/loader-install \
@@ -130,4 +134,5 @@ vmdk: disk
 clean:
 	$(Q)$(MAKE) -C boot   clean
 	$(Q)$(MAKE) -C kernel clean
+	$(Q)$(MAKE) -C user   clean
 	$(Q)rm -f $(DISK_IMG) $(DISK_IMG_QCOW)

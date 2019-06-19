@@ -19,6 +19,8 @@
 
 namespace Driver::Disk::Ata::Protocol {
 
+    u8 get_status(u8 bus);
+
     using identify_result_t = Array<u16, 256>;
 
     /**
@@ -33,17 +35,19 @@ namespace Driver::Disk::Ata::Protocol {
                 ,u8 drive
                 ,identify_result_t &result);
 
-    u64 send_cmd_read(u8  bus
-                     ,u8  drive
-                     ,u64 lba
-                     ,u8  count);
+    /// note: a count of 0 means 256 blocks as a special case.
+    errno_t read_blocks(u8  bus
+                       ,u8  drive
+                       ,u64 lba
+                       ,u8 *dest
+                       ,u8  count);
 
     /// note: a count of 0 means 256 blocks as a special case.
-    bool read_blocks(u8  bus
-                    ,u8  drive
-                    ,u64 lba
-                    ,u8 *dest
-                    ,u8  count);
+    errno_t write_blocks(u8  bus
+                        ,u8  drive
+                        ,u64 lba
+                        ,const u8 *src
+                        ,u8  count);
 
     void reset_all();
 }

@@ -28,6 +28,7 @@
 #include "common/debug.hh"
 #include "common/panic.hh"
 #include "common/kprint.hh"
+#include "common/new-delete.hh"
 
 // The ostd namespace is used throughout the kernel - this does not harm other
 // libraries and userspace code.
@@ -35,4 +36,11 @@ using namespace ostd;
 using namespace ostd::literals;
 
 #define UNIMPLEMENTED assert(0, "tried to use an unimplemented feature");
-#define UNREACHABLE   __builtin_unreachable();
+
+// Triggers an exception, leading to a kernel panic.
+// Useful for code readability when calling functions that cannot return.
+#define UNREACHABLE __builtin_unreachable();
+
+#ifndef KERNEL_VERSION
+#define KERNEL_VERSION "9999"
+#endif

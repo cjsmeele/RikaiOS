@@ -15,6 +15,7 @@
 #include "vga.hh"
 #include "vga/hacks.hh"
 #include "memory/manager-virtual.hh"
+#include "filesystem/vfs.hh"
 
 DRIVER_NAME("vga");
 
@@ -23,7 +24,10 @@ namespace Driver::Vga {
     constexpr u16 port_bochs_vbe_index = 0x1ce;
     constexpr u16 port_bochs_vbe_data  = 0x1cf;
 
-    u32 *framebuffer;
+    u32 *framebuffer = nullptr;
+
+    u32 width  = 0;
+    u32 height = 0;
 
     /// Writes to a VBE register.
     static void write(u16 index, u16 data) {
@@ -38,13 +42,7 @@ namespace Driver::Vga {
     }
 
     /// Set a screen resolution.
-    static void mode_set(u16 w, u16 h, u16 bpp) {
-        write(4, 0);    // Disable VBE.
-        write(1, w);    // Write screen width, height and bits per pixel.
-        write(2, h);
-        write(3, bpp);
-        write(4, 0x41); // Enable VBE, with linear framebuffer (LFB) support.
-    }
+    static void mode_set(u16 w, u16 h, u16 bpp = 32);
 
     void test(u16 w, u16 h) {
 
@@ -69,6 +67,61 @@ namespace Driver::Vga {
         }
     }
 
+    static DevFs::memory_device_t fbdev { };
+
+    static struct mode_device_t : public DevFs::line_device_t<32> {
+        errno_t get(String<32> &str) {
+            str = "";
+            fmt(str, "{}x{}\n", width, height);
+            return ERR_success;
+        }
+        errno_t set(StringView v) {
+            String<32> xs = "";
+            String<32> ys = "";
+            bool have_x = false;
+            for (char c : v) {
+                if (have_x)
+                     ys += c;
+                else if (c == 'x')
+                     have_x = true;
+                else xs += c;
+            }
+
+            u32 w, h;
+
+            if (string_to_num(xs, w)
+             && string_to_num(ys, h)
+             && w % 8 == 0
+             && h % 8 == 0
+             && w > 8
+             && h > 8) {
+
+                if (w != width || h != height)
+                    mode_set(w, h);
+
+                return ERR_success;
+
+            } else {
+                dprint("invalid vga dimensions: <{}> (x,y must be at least 16 and div by 8)\n", v);
+                return ERR_io;
+            }
+        }
+    } modedev;
+
+    static void mode_set(u16 w, u16 h, u16 bpp) {
+        width  = w;
+        height = h;
+
+        write(4, 0);    // Disable VBE.
+        write(1, w);    // Write screen width, height and bits per pixel.
+        write(2, h);
+        write(3, bpp);
+        write(4, 0x41); // Enable VBE, with linear framebuffer (LFB) support.
+
+        // Update /dev/video file size.
+        fbdev.region.size = w*h*(bpp/8);
+    }
+
     void init() {
 
         u16 version = read(0);
@@ -82,20 +135,32 @@ namespace Driver::Vga {
 
             if (region_valid(phy)) {
                 // Map the framebuffer somewhere in virtual memory.
-                framebuffer = (u32*)Memory::Virtual::map_mmio(0
-                                                             ,phy.start
-                                                             ,align_up(phy.size, page_size)
-                                                             ,Memory::Virtual::flag_writable);
+                framebuffer = nullptr;
+                addr_t virt = 0;
+
+                errno_t err = Memory::Virtual::map_mmio(virt
+                                                       ,phy.start
+                                                       ,align_up(phy.size, page_size)
+                                                       ,Memory::Virtual::flag_writable);
+
+                if (err < 0) {
+                    dprint("could not map framebuffer memory\n");
+                    return;
+                }
+
+                framebuffer = (u32*)virt;
 
                 dprint("linear framebuffer of {S} at phy {08x}, mapped at {08x}\n"
                       ,phy.size, phy.start, framebuffer);
 
-                // test(1920, 1080);
-                // test(1280, 720);
-                // test(1024, 768);
-                // test(800, 600);
-                // test(640, 480);
+                // Register device files.
 
+                DevFs *devfs = Vfs::get_devfs();
+                if (devfs) {
+                    fbdev = { Memory::region_t{ (addr_t)framebuffer, align_up(phy.size, page_size) } };
+                    devfs->register_device("video",      fbdev,   0600);
+                    devfs->register_device("video-mode", modedev, 0600);
+                }
             } else {
                 dprint("error: could not obtain framebuffer address\n");
             }

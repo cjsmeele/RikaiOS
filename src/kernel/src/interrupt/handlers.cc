@@ -18,6 +18,7 @@
 #include "../memory/gdt.hh"
 #include "../debug-keys.hh"
 #include "../process/proc.hh"
+#include "syscall.hh"
 
 /**
  * State save/restore.
@@ -59,38 +60,38 @@ extern "C" [[gnu::naked]] void isr_common() {
 }
 
 constexpr Array<StringView, 0x20> exception_names
-    /* 0x00 */ { "Divide Error Exception"
-    /* 0x01 */ , "Debug Exception"
-    /* 0x02 */ , "Non-Maskable Interrupt"
-    /* 0x03 */ , "Breakpoint Exception"
-    /* 0x04 */ , "Overflow Exception"
-    /* 0x05 */ , "BOUND Range Exceeded Exception"
-    /* 0x06 */ , "Invalid Opcode Exception"
-    /* 0x07 */ , "Device Not Available Exception"
-    /* 0x08 */ , "Double Fault Exception"
-    /* 0x09 */ , "Coprocessor Segment Overrun"
-    /* 0x0a */ , "Invalid TSS Exception"
-    /* 0x0b */ , "Segment Not Present"
-    /* 0x0c */ , "Stack Fault Exception"
-    /* 0x0d */ , "General Protection Exception"
-    /* 0x0e */ , "Page-Fault Exception"
-    /* 0x0f */ , "Unknown Exception"
-    /* 0x10 */ , "FPU Floating-Point Error"
-    /* 0x11 */ , "Alignment Check Exception"
-    /* 0x12 */ , "Machine-Check Exception"
-    /* 0x13 */ , "SIMD Floating-Point Exception"
-    /* 0x14 */ , "Unknown Exception"
-    /* 0x15 */ , "Unknown Exception"
-    /* 0x16 */ , "Unknown Exception"
-    /* 0x17 */ , "Unknown Exception"
-    /* 0x18 */ , "Unknown Exception"
-    /* 0x19 */ , "Unknown Exception"
-    /* 0x1a */ , "Unknown Exception"
-    /* 0x1b */ , "Unknown Exception"
-    /* 0x1c */ , "Unknown Exception"
-    /* 0x1d */ , "Unknown Exception"
-    /* 0x1e */ , "Unknown Exception"
-    /* 0x1f */ , "Unknown Exception" };
+    /* 0x00 #DE */ { "Divide Error Exception"
+    /* 0x01 #DB */ , "Debug Exception"
+    /* 0x02     */ , "Non-Maskable Interrupt"
+    /* 0x03 #BP */ , "Breakpoint Exception"
+    /* 0x04 #OF */ , "Overflow Exception"
+    /* 0x05 #BR */ , "BOUND Range Exceeded Exception"
+    /* 0x06 #UD */ , "Invalid Opcode Exception"
+    /* 0x07 #NM */ , "Device Not Available Exception"
+    /* 0x08 #DF */ , "Double Fault Exception"
+    /* 0x09     */ , "Coprocessor Segment Overrun"
+    /* 0x0a #TS */ , "Invalid TSS Exception"
+    /* 0x0b #NP */ , "Segment Not Present"
+    /* 0x0c #SS */ , "Stack Fault Exception"
+    /* 0x0d #GP */ , "General Protection Exception"
+    /* 0x0e #PF */ , "Page-Fault Exception"
+    /* 0x0f     */ , "Unknown Exception"
+    /* 0x10 #MF */ , "FPU Floating-Point Error"
+    /* 0x11 #AC */ , "Alignment Check Exception"
+    /* 0x12 #MC */ , "Machine-Check Exception"
+    /* 0x13 #XM */ , "SIMD Floating-Point Exception"
+    /* 0x14     */ , "Unknown Exception"
+    /* 0x15     */ , "Unknown Exception"
+    /* 0x16     */ , "Unknown Exception"
+    /* 0x17     */ , "Unknown Exception"
+    /* 0x18     */ , "Unknown Exception"
+    /* 0x19     */ , "Unknown Exception"
+    /* 0x1a     */ , "Unknown Exception"
+    /* 0x1b     */ , "Unknown Exception"
+    /* 0x1c     */ , "Unknown Exception"
+    /* 0x1d     */ , "Unknown Exception"
+    /* 0x1e     */ , "Unknown Exception"
+    /* 0x1f     */ , "Unknown Exception" };
 
 namespace Interrupt::Handler {
 
@@ -136,6 +137,8 @@ namespace Interrupt::Handler {
                       ,"Have you tried turning it off and on again?"
                       ,"Try putting `sudo' in front."
                       ,"This is fine..."
+                      ,"'Tis but a scratch"
+                      ,"It's just a flesh wound"
         };
 
         // See if we can handle page faults in a non-fatal way.
@@ -143,15 +146,37 @@ namespace Interrupt::Handler {
             // Ok!
             return;
 
-        // Panic with a register dump.
-        panic("{#02x}:{#08x} - {}\n\n{}\n{}\n"
-             ,frame.int_no
-             ,frame.error_code
-             ,frame.int_no < exception_names.size()
-                ? exception_names[frame.int_no]
-                : "???"
-             ,frame
-             ,quotes[rand()%quotes.size()]);
+        // In any other case, the running thread is killed.
+        // If kernel code caused the problem, it's time to panic.
+
+        bool is_kernel = frame.sys.cs == Memory::Gdt::i_kernel_code << 3;
+
+        if (is_kernel) {
+            // The kernel did an oopsie: Panic with a register dump.
+            panic("{#02x}:{#08x} - {}\n\n{}\n{}\n"
+                 ,frame.int_no
+                 ,frame.error_code
+                 ,frame.int_no < exception_names.size()
+                    ? exception_names[frame.int_no]
+                    : "???"
+                 ,frame
+                 ,quotes[rand()%quotes.size()]);
+        } else {
+            // A userland process violated the law. Kill the offender.
+            // (note: should kill the entire process, not just the thread)
+            kprint("\n*** VIOLATION ({#02x}:{#08x} - {})\n    by {}\nthread frame: {}\n"
+                  ,frame.int_no
+                  ,frame.error_code
+                  ,frame.int_no < exception_names.size()
+                    ? exception_names[frame.int_no]
+                    : "???"
+                  ,*Process::current_thread()
+                  ,frame);
+
+            Process::delete_thread(Process::current_thread());
+        }
+
+        UNREACHABLE
     }
 
     /**
@@ -162,6 +187,7 @@ namespace Interrupt::Handler {
     static void handle_irq(Interrupt::interrupt_frame_t &frame) {
         using namespace Interrupt;
 
+        // IRQ numbers are mapped starting at 0x20.
         u8 irq = frame.int_no - 0x20;
 
         // Hardware interrupts must be acknowledged.
@@ -169,32 +195,10 @@ namespace Interrupt::Handler {
 
         if (irq_handlers[irq]) {
             irq_handlers[irq](frame);
-
         } else {
-
-            if (frame.int_no == 0x21 || frame.int_no == 0x24) {
-                char ch = 0;
-                if (frame.int_no == 0x21) {
-                } else if (frame.int_no == 0x24) {
-                    // Handle serial line input.
-                    ch = Io::in_8(0x3f8);
-                }
-                handle_debug_key(ch);
-            }
-
-            // kprint("!!irq{} ", irq);
+            // Unknown interrupt number, inform the user.
+            kprint("!!unk.irq{} ", irq);
         }
-    }
-
-    /**
-     * Software interrupt handler.
-     *
-     * Called by the common interrupt handler for system calls.
-     */
-    static void handle_syscall(Interrupt::interrupt_frame_t &frame) {
-        using namespace Interrupt;
-
-        (void)frame;
     }
 }
 
@@ -207,14 +211,26 @@ extern "C" void common_interrupt_handler(Interrupt::interrupt_frame_t &frame);
 extern "C" void common_interrupt_handler(Interrupt::interrupt_frame_t &frame) {
     using namespace Interrupt;
 
+    if (frame.int_no < 0x20) {
+        // Check & handle exceptions first.
+        Handler::handle_exception(frame);
+
+        // If we are still here, then the exception was non-fatal to the
+        // running thread. Return immediately.
+        return;
+    }
+
+    // Other handlers may cause context switches.
+    // Save the interrupt frame so that we can return to this thread.
     Process::save_frame(frame);
 
-    if (frame.int_no < 0x20) {
-        Handler::handle_exception(frame);
-    } else if (frame.int_no < 0x30) {
+    if (frame.int_no < 0x30) {
         Handler::handle_irq(frame);
-    } else {
-        Handler::handle_syscall(frame);
+    } else if (frame.int_no == 0xca) {
+        Syscall::handle_syscall(Process::current_thread()->frame);
+        Process::dispatch(*Process::current_thread());
+
+        UNREACHABLE
     }
 }
 

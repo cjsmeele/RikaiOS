@@ -32,7 +32,6 @@ namespace ostd {
     template<typename T, typename... Us>
     constexpr bool is_oneof(const T v
                            ,const Us&... rest) { return ((v == rest) || ...); }
-
     template<typename N>
     constexpr bool in_range(N mi, N ma, N x) { return x >= mi && x <= ma; }
 
@@ -46,12 +45,30 @@ namespace ostd {
     constexpr bool is_hexnum(char c) { return is_num(c)   || in_range('a', 'f', to_lower(c)); }
     constexpr bool is_alnum (char c) { return is_alpha(c) || is_num(c);                       }
     constexpr bool is_print (char c) { return in_range(' ', '~', c);                          }
+
+    /**
+     * Gives the ASCII control character corresponding to the given control-key.
+     *
+     * Essentially, this subtracts 0x40 from the input, such that '@' maps to
+     * the NUL char, 'A' maps to 0x01, etc. Consult an ascii table for more information.
+     *
+     * Common examples:
+     *
+     * - 'J' (^J) -> '\n' (0x0a)
+     * - 'M' (^M) -> '\r' (0x0d)
+     * - 'H' (^H) -> '\b' (0x08)
+     */
+    constexpr char ascii_ctrl(char c) {
+        s8 ch = to_upper(c) - 0x40;
+        if (ch < 0) return 0x80 + ch; // (for ^? -> 0x7f, pretend we are 7-bit)
+        else        return ch;
+    }
     ///@}
 
     struct StringView;
 
     /**
-     * Fixed-size string class.
+     * Fixed-capacity string class.
      *
      * This provides storage for NUL-terminated strings. It is in essence a
      * wrapper around an Array<char> of the right size.
@@ -61,6 +78,10 @@ namespace ostd {
      *
      * `Nchars` is the capacity of the string's contents; the NUL byte is not
      * counted (so String<3> can safely hold "foo").
+     *
+     * On overflow, extra input characters are ignored - no errors are reported.
+     * The user should check whether text will fit in the string before
+     * assigning or appending.
      *
      * Note that length() != size()!
      * - size() always returns the *capacity* of the string, that is, the
@@ -107,15 +128,49 @@ namespace ostd {
             *this = "";
         }
 
+        constexpr void pop(size_t n = 1) {
+            if (n >= length_) {
+                clear();
+                return;
+            }
+
+            length_ -= n;
+            data_[length_] = 0;
+        }
+
+        constexpr void pop_front(size_t n = 1) {
+            if (n >= length_) {
+                clear();
+                return;
+            }
+
+            length_ -= n;
+
+            for (size_t i : range(length_))
+                data_[i] = data_[i + n];
+
+            data_[length_] = 0;
+        }
+
         // Trim whitespace at the end of the string.
         constexpr void rtrim() {
             for (ssize_t i : range(length_-1, -1, -1)) {
-                if (data_[i] != ' ')
-                    break;
+                if (!is_space(data_[i])) break;
 
                 data_[i] = 0;
                 --length_;
             }
+        }
+
+        constexpr void to_lower() { for (char &c : *this) c = ostd::to_lower(c); }
+        constexpr void to_upper() { for (char &c : *this) c = ostd::to_upper(c); }
+
+        constexpr ssize_t char_pos(char c, size_t start = 0) {
+            for (size_t i : range(start, length_)) {
+                if (data_[i] == c)
+                    return i;
+            }
+            return -1;
         }
 
         constexpr bool operator==(StringView o) const;
@@ -129,6 +184,9 @@ namespace ostd {
         constexpr bool operator!=(const char (&o)[N2]) const {
             return *this != StringView(o, N2-1);
         }
+
+        constexpr bool starts_with(StringView o) const;
+        constexpr bool   ends_with(StringView o) const;
 
         constexpr String &operator=(const char *o) {
             for (length_ = 0
@@ -168,7 +226,7 @@ namespace ostd {
         }
 
         constexpr operator StringView();
-        constexpr operator const char*() { return data_.data(); }
+        constexpr explicit operator const char*() { return data_.data(); }
 
         constexpr String() { length_ = 0; }
 
@@ -189,6 +247,7 @@ namespace ostd {
         }
 
         constexpr String(const char *data) { *this = data; }
+        constexpr String(StringView o);
     };
 
     // Deduction guide for string literals.
@@ -201,8 +260,14 @@ namespace ostd {
     /**
      * Provides a read-only view into a string.
      *
-     * This is meant to be a cheap-to-copy method of access to both string
-     * literals (const char arrays) and String types.
+     * This is meant to be a cheap-to-copy method of read-only access to both
+     * string literals (char arrays) and String types.
+     *
+     * A StringView should always be passed by value, not by reference.
+     *
+     * Strings pointed to by StringView are not guaranteed to be NUL-terminated.
+     * Always use range-based for loops (`for (char c : stringview)`) or
+     * manually check the length() property.
      */
     struct StringView {
 
@@ -224,7 +289,7 @@ namespace ostd {
         constexpr const char *data() const { return data_; }
 
         /// Accessor.
-        constexpr char operator[](size_t i)       { return data_[i]; }
+        constexpr char operator[](size_t i) const { return data_[i]; }
 
         /** \name Iterator-ish functions.
          *
@@ -235,7 +300,9 @@ namespace ostd {
         constexpr const char *end()   const { return data_+length_; }
         ///@}
 
-        constexpr operator const char*() const { return data_; }
+        constexpr explicit operator const char*() const { return data_; }
+
+        // constexpr operator bool() const { return length_; }
 
         constexpr bool operator==(const char *o) const {
             return *this == StringView(o);
@@ -254,23 +321,30 @@ namespace ostd {
 
         // constexpr operator bool() const { return data_; }
 
-        constexpr StringView(const char *s)
+        constexpr StringView() // Default constructor: Empty string.
+            : data_(nullptr)
+            , length_(0) { }
+        constexpr StringView(const char *s) // Assign from null-terminated string.
             : data_(s)
             , length_(str_length(s)) { }
-        constexpr StringView(const char *s, size_t length)
+        constexpr StringView(const char *s, size_t length) // Assign from a sized string.
             :   data_(s)
             , length_(length) { }
 
         template<size_t N>
-        constexpr StringView(const char (&s)[N])
+        constexpr StringView(const char (&s)[N]) // Assign from string literal.
             :   data_(s)
             , length_(N-1) { }
 
         template<size_t N>
-        constexpr StringView(const String<N> &s)
+        constexpr StringView(const String<N> &s) // Assign from string.
                 :   data_(s.data())
                 , length_(s.length()) { }
     };
+
+
+    template<size_t N>
+    constexpr String<N>::String(StringView o) { *this = o; }
 
     template<size_t N>
     constexpr String<N> &String<N>::operator=(StringView o) {
@@ -305,10 +379,35 @@ namespace ostd {
         return StringView(*this) != o;
     }
 
+    template<size_t N>
+    constexpr bool String<N>::starts_with(StringView o) const {
+        if (o.length() > length_) return false;
+        for (auto [x, y] : zip(*this, o))
+            if (x != y) return false;
+
+        return true;
+    }
+
+    template<size_t N>
+    constexpr bool String<N>::ends_with(StringView o) const {
+        if (o.length() > length_) return false;
+        for (size_t i : range(o.length())) {
+            if ((*this)[length_ - 1 - i] != o[o.length() - 1 - i])
+                return false;
+        }
+        return true;
+    }
+
     namespace Format {
+
+        // See fmt.hh
+
         template<typename F>
         constexpr int format(F &print, Flags &f, StringView s) {
-            if (!s) s = "<null>";
+            // Formats a string (applies padding).
+
+            if (!s.data())   s = "<null>";
+            if (!s.length()) s = "";
 
             int count = 0;
 
@@ -317,12 +416,13 @@ namespace ostd {
             if (!f.align_left && pad > 0)
                 count += format_padding(print, ' ', pad);
 
-            print(s);
+            for (char c : s)
+                print(c), count++;
 
             if (f.align_left && pad > 0)
                 count += format_padding(print, ' ', pad);
 
-            return count + s.length();
+            return count;
         }
 
         template<typename F, size_t N>
@@ -331,15 +431,69 @@ namespace ostd {
         }
     }
 
+    /// Parse a string into a u64. Returns false on parse error.
+    constexpr inline bool string_to_u64(StringView s, u64 &v) {
+        v = 0;
+        if (!s.length()) return false;
+
+        u64 x = 0;
+
+        for (auto [i, c] : enumerate(s)) {
+            // Fail on overflow and non-numeric characters.
+            if (!is_num(c))               return false;
+            if (!safe_mul(x, 10, x))      return false;
+            if (!safe_add(x, c - '0', x)) return false;
+        }
+
+        v = x;
+        return true;
+    }
+
+    /// Parse a string into any integral type. Returns false on parse error.
+    template<typename T>
+    constexpr inline bool string_to_num(StringView s, T &v) {
+
+        v = 0;
+        if (!s.length()) return false;
+
+        if constexpr (is_signed<T>::value) {
+            u64 x    = 0;
+            T   sign = 1;
+
+                 if (s[0] == '+') s.data_++, s.length_--;
+            else if (s[0] == '-') s.data_++, s.length_--, sign = -1;
+
+            if (!string_to_u64(s, x)) return false;
+            if (x > intmax<T>::value) return false;
+
+            v = sign * static_cast<T>(x);
+            return true;
+        } else {
+            u64 x = 0;
+            if (!string_to_u64(s, x)) return false;
+            if (x > intmax<T>::value) return false;
+
+            v = x;
+            return true;
+        }
+    }
+
     /// Format a string, append results to a String.
     template<size_t StrLen, typename... As>
     constexpr int fmt(String<StrLen> &dest, const char *s, const As&... args) {
         int count = fmt(dest.data()+dest.length()
-                       ,StrLen+1 - dest.length()
+                       ,StrLen+1 - dest.length() // (include space for NUL byte)
                        ,s, args...);
 
         dest.length_ += count;
 
         return count;
+    }
+
+    /// Format anything, with a StringView as the format string.
+    /// FIXME: This assumes the format stringview is a null-terminated string!
+    template<typename T, typename... As>
+    constexpr int fmt(T &&dest, StringView s, const As&... args) {
+        return fmt(forward(dest), s.data(), forward(args)...);
     }
 }

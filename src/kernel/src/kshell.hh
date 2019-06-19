@@ -39,6 +39,9 @@ namespace Kshell {
     /// Ask if the shell is running.
     bool enabled();
 
+    /// Ask if UART and keyboard input should be redirected to the kshell input buffer.
+    bool want_all_input();
+
     /// kshell thread function.
     void kshell();
 }

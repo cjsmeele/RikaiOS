@@ -15,6 +15,7 @@
 #pragma once
 
 #include "common.hh"
+#include "region.hh"
 
 /**
  * \namespace Memory::Virtual
@@ -78,11 +79,12 @@ namespace Memory::Virtual {
      *
      *@{
      */
-    constexpr u32 flag_present  = 1 << 0;
-    constexpr u32 flag_writable = 1 << 1;
-    constexpr u32 flag_user     = 1 << 2; ///< accessible from user-mode?
-    constexpr u32 flag_nocache  = 1 << 4; ///< should be 1 for memory-mapped I/O.
-    constexpr u32 flag_borrowed = 1 << 9; ///< 0 if this virt page "owns" the phy page.
+    constexpr u32 flag_present  = 1 <<  0;
+    constexpr u32 flag_writable = 1 <<  1;
+    constexpr u32 flag_user     = 1 <<  2; ///< accessible from user-mode?
+    constexpr u32 flag_nocache  = 1 <<  4; ///< should be 1 for memory-mapped I/O.
+    constexpr u32 flag_borrowed = 1 <<  9; ///< 0 if this virt page "owns" the phy page.
+    constexpr u32 flag_locked   = 1 << 10;
     ///@}
 
     // Note: alignas is not valid on type aliases (why?).
@@ -98,16 +100,22 @@ namespace Memory::Virtual {
     PageDir &current_dir();
 
     /// note: virt and size must be page-aligned.
-    addr_t map(addr_t virt, addr_t phy, size_t size, u32 flags);
+    errno_t map(addr_t virt, addr_t phy, size_t size, u32 flags);
 
     /// note: virt and size must be page-aligned.
     void unmap(addr_t virt, size_t size);
 
     /// Maps memory-mapped IO memory.
     /// If virt is 0, will allocate virtual address space.
-    addr_t map_mmio(addr_t virt, addr_t phy, size_t size, u32 flags);
+    errno_t map_mmio(addr_t &virt, addr_t phy, size_t size, u32 flags);
 
-    bool is_mapped(addr_t virt);
+    /// note: virt+size is assumed not to overflow.
+    bool is_mapped(addr_t virt, size_t size = 1);
+
+    inline bool is_mapped(region_t r) {
+        return region_valid(r)
+            && is_mapped(r.start, r.size);
+    }
 
     /// Lookup the physical address belonging to the given virtual address in
     /// the current address space. (returns 0 if not present)
@@ -119,6 +127,11 @@ namespace Memory::Virtual {
 
     /// Switch to a different address space.
     void switch_address_space(PageDir &page_dir);
+
+    /// Create a new address space.
+    PageDir *make_address_space();
+
+    void delete_address_space(PageDir *page_dir);
 
     /// Initialises the memory manager.
     void init();

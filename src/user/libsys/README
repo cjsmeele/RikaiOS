@@ -1,0 +1,9 @@
+This directory contains the sources for the system library.
+
+This library must be statically linked with all C++ programs that are to be run
+on this operating system.
+The responsibilities include:
+
+- Setting up and breaking down the operating environment that C++ programs
+  depend on (i.e. everything that happens before and after main()
+- Providing a C++ interface to all system calls

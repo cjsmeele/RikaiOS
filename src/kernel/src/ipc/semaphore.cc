@@ -18,10 +18,9 @@
 
 using namespace Process;
 
-void signal(semaphore_t &sem) {
+// Note: Interrupts are disabled in kernel code. This makes our lives easier.
 
-    // Make sure we have exclusive access to the counter and the queue.
-    enter_critical_section();
+void signal(semaphore_t &sem) {
 
     // Thread id and struct of the thread that we are unblocking.
     tid_t     tid;
@@ -41,14 +40,21 @@ void signal(semaphore_t &sem) {
         // No, mark availability.
         sem.i++;
     }
+}
 
-    leave_critical_section();
+void signal_all(semaphore_t &sem) {
+
+    tid_t     tid;
+    thread_t *thread = nullptr;
+
+    while (sem.waiting.dequeue(tid)) {
+        thread = thread_by_tid(tid);
+        if (thread)
+            unblock(*thread);
+    }
 }
 
 void wait(semaphore_t &sem) {
-
-    // Make sure we have exclusive access to the counter and the queue.
-    enter_critical_section();
 
     if (sem.i > 0) {
         // Something's available right now, move on.
@@ -64,22 +70,14 @@ void wait(semaphore_t &sem) {
 
         // Wait is done!
     }
-
-    leave_critical_section();
 }
 
 bool try_wait(semaphore_t &sem) {
 
-    // Make sure we have exclusive access to the counter and the queue.
-    enter_critical_section();
-
     if (sem.i > 0) {
         sem.i--;
-        leave_critical_section();
         return true;
-
     } else {
-        leave_critical_section();
         return false;
     }
 }

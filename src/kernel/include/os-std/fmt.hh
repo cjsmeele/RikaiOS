@@ -51,7 +51,7 @@ namespace ostd {
      *     fmt(print, "Hello, {}!\n", "world");
      *
      *     => Hello, world!
-     *     
+     *
      *     fmt(print, "These fields are padded and aligned:\n"
      *                "| {-6} | {6} | {06} | {6x} | {#04x} |\n"
      *              , "left", "right", 42, 123, 123);
@@ -114,22 +114,6 @@ namespace ostd {
                 count += format_padding(print, ' ', pad);
 
             return count;
-        }
-
-        /// Formatter for characters.
-        template<typename F> constexpr int format(F &print, Flags &f, char c) {
-            if (f.repeat) {
-                for (int i = 0; i < f.width; ++i)
-                    print(c);
-                return f.width;
-            } else {
-                int count = 1;
-                int pad = f.width ? f.width - 1 : 0;
-                if (!f.align_left) count += format_padding(print, ' ', pad);
-                print(c);
-                if (f.align_left)  count += format_padding(print, ' ', pad);
-                return count;
-            }
         }
 
         /// Formatter for booleans.
@@ -238,6 +222,27 @@ namespace ostd {
         template<typename F> constexpr int format(F &print, Flags &f,   u32 n) { return format(print, f, (u64)n); }
         template<typename F> constexpr int format(F &print, Flags &f, uli32 n) { return format(print, f, (u64)n); }
         ///@}
+
+        /// Formatter for characters.
+        template<typename F> constexpr int format(F &print, Flags &f, char c) {
+            if (f.unsign || f.radix != 10) {
+                return format(print, f, (u8)c);
+            } else {
+                if (f.repeat) {
+                    for (int i = 0; i < f.width; ++i)
+                        print(c);
+                    return f.width;
+                } else {
+                    int count = 1;
+                    int pad = f.width ? f.width - 1 : 0;
+                    if (!f.align_left) count += format_padding(print, ' ', pad);
+                    print(c);
+                    if (f.align_left)  count += format_padding(print, ' ', pad);
+                    return count;
+                }
+            }
+        }
+
 
         /// Formatter for pointers.
         template<typename F, typename T>

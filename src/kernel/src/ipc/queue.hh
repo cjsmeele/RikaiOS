@@ -38,7 +38,7 @@ struct KQueue {
     Array<Item,N> items;
 
     /// The amount of (non-null) items we currently have.
-    atomic<size_t> length_ = 0;
+    size_t length_ = 0;
 
     semaphore_t items_available { 0, {} };
     semaphore_t space_available { N, {} };
@@ -73,15 +73,11 @@ struct KQueue {
     constexpr void enqueue_(T &&item) {
         // Assume length_ < N.
 
-        enter_critical_section();
-
         items[i_writer_].data = move(item);
         increment(i_writer_);
 
         ++length_;
         signal(items_available);
-
-        leave_critical_section();
     }
 
     template<typename U>
@@ -104,8 +100,6 @@ struct KQueue {
     constexpr T dequeue_() {
         // Assume length_ > 0.
 
-        enter_critical_section();
-
         T item = move(items[i_reader_].data);
 
         items[i_reader_].data.~T();
@@ -116,7 +110,6 @@ struct KQueue {
         --length_;
         signal(space_available);
 
-        leave_critical_section();
         return move(item);
     }
 

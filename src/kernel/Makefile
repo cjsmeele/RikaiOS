@@ -67,6 +67,7 @@ CXX_INCLUDE =          \
 CXXFLAGS =                          \
 	-march=i686                     \
 	-m32                            \
+	-msoft-float                    \
 	-Os                             \
 	-g3                             \
 	-ggdb                           \
@@ -103,15 +104,15 @@ CXXFLAGS =                          \
 # functions that are needed for a.o. some division operations, floating point
 # ops, and advanced bit operations (popcnt, etc.).
 ifdef USE_LIBGCC
-    LD_BUILTIN_DIR  =                                          \
-        .                                                      \
+    LD_BUILTIN_DIR  =                             \
+        . ..                                      \
         $(wildcard /usr/local/lib/gcc/i686-elf/*) \
         $(wildcard /usr/lib/gcc/i686-elf/*)
     LD_BUILTIN_NAME = gcc
 endif
 ifdef USE_CLANGRT
     LD_BUILTIN_DIR  =                                \
-        .                                            \
+        . ..                                         \
         $(wildcard /usr/local/lib/clang/*/lib/linux) \
         $(wildcard /usr/lib/clang/*/lib/linux)
     LD_BUILTIN_NAME = clang_rt.builtins-i386
@@ -132,13 +133,14 @@ KERNEL_BIN = kernel.bin
 
 .PHONY: all elf bin dep doc clean
 
+all: bin
+
 -include Makefile.local
 
 ifdef WERROR
     CXXFLAGS += -Werror
 endif
 
-all: bin
 elf: $(KERNEL_ELF)
 bin: $(KERNEL_BIN)
 dep: $(DEPFILE)

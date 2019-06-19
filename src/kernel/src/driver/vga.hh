@@ -24,9 +24,16 @@
  * Supported machines include Bochs, QEMU and VirtualBox.
  *
  * For other (non-virtual) graphics hardware, we need the help of the
- * bootloader to set a VBE graphics mode early on (not yet implemented), since
- * the protected mode interface that adapters provide is usually too limited to
- * support any interesting video modes.
+ * bootloader to set a VBE graphics mode early on in real mode[1] (not yet
+ * implemented) since the standardised protected mode interface that adapters
+ * provide is often missing/incomplete (VBE PMI) or too limited (VGA) to
+ * support any interesting video modes (unless we want to go with 640x480 with
+ * only 16 colors).
+ * Switching video modes without standard VGA or VBE will require very
+ * hardware-specific drivers, which is beyond our scope.
+ *
+ * [1] see https://github.com/cjsmeele/stoomboot/blob/master/stage2/src/vbe.c
+ *     for older code that can be ported
  */
 namespace Driver::Vga {
 

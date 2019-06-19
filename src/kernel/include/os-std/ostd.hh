@@ -42,3 +42,5 @@ namespace ostd { }
 #include "bitset.hh"
 #include "string.hh"
 #include "queue.hh"
+#include "errno.hh"
+#include "misc.hh"

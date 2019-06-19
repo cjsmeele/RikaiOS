@@ -14,7 +14,9 @@
  */
 #include "manager-virtual.hh"
 #include "manager-physical.hh"
+#include "kernel-heap.hh"
 #include "layout.hh"
+#include "interrupt/interrupt.hh"
 
 namespace Memory::Virtual {
 
@@ -120,6 +122,22 @@ namespace Memory::Virtual {
     [[maybe_unused]] static addr_t pte_addr   (pte_t  x) { return  x & ~(0xfff);     }
     ///@}
 
+    static PageDir *new_pdir() {
+        // We cannot simply do `new PageDir`, since the required alignment will
+        // not be respected (its not an attribute on the PageDir type).
+        // Instead, we use a manual aligned allocation together with placement new.
+        void *p = Heap::alloc(sizeof(PageDir), 4_K);
+        if (!p) return nullptr;
+        return new (p) PageDir;
+    }
+
+    static PageTab *new_ptab() {
+        // See above.
+        void *p = Heap::alloc(sizeof(PageTab), 4_K);
+        if (!p) return nullptr;
+        return new (p) PageTab;
+    }
+
     /**
      * Get the page table containing an entry for the given virtual address.
      *
@@ -129,7 +147,7 @@ namespace Memory::Virtual {
      */
     static PageTab *get_tab(addr_t for_addr, bool allocate = false) {
 
-        // kprint("    tab {08x}\n", for_addr);
+        // klog("    tab {08x}\n", for_addr);
 
         PageDir &dir = current_dir();
         u32 tab_no   = addr_tab(for_addr);
@@ -139,7 +157,7 @@ namespace Memory::Virtual {
             u32 phy_page = Physical::allocate_one();
             if (!phy_page) return nullptr;
 
-            // kprint("    tab {} install {08x} into {}\n", tab_no, phy_page*page_size, &recursive_tab()[tab_no]);
+            // klog("    tab {} install {08x} into {}\n", tab_no, phy_page*page_size, &recursive_tab()[tab_no]);
 
             recursive_tab()[tab_no] = make_pte(page_addr(phy_page), flag_present | flag_writable);
 
@@ -150,7 +168,7 @@ namespace Memory::Virtual {
             else dir[tab_no] = make_pde(page_addr(phy_page), flag_present
                                                            | flag_writable);
 
-            // kprint("    tab installed\n");
+            // klog("    tab installed\n");
 
             flush_tlb();
         }
@@ -166,7 +184,7 @@ namespace Memory::Virtual {
         PageTab *table_ = get_tab(virt);
         if (!table_) return 0;
 
-        PageTab table = *table_;
+        PageTab &table = *table_;
         pte_t entry = table[addr_pagei(virt)];
         return pte_addr(entry);
     }
@@ -176,6 +194,7 @@ namespace Memory::Virtual {
 
     /// Changes the current address space.
     static void set_pagedir(PageDir &dir) {
+
         // Load a pointer to the page directory in CR3.
         addr_t phy_addr = virtual_to_physical(&dir);
         assert(phy_addr, "tried to switch to unmapped page directory");
@@ -184,14 +203,14 @@ namespace Memory::Virtual {
     }
 
     void switch_address_space(PageDir &page_dir) {
-        kprint("switch to pd @{}\n", &page_dir);
+        // kprint("switch to pd @{}\n", &page_dir);
         set_pagedir(page_dir);
     }
 
     /// Removes a memory mapping.
     static void unmap_one(addr_t virt) {
 
-        kprint("  unmap {08x}\n", virt);
+        // klog("  unmap {08x}\n", virt);
 
         PageTab *tab_ = get_tab(virt);
 
@@ -211,7 +230,8 @@ namespace Memory::Virtual {
 
     /// Removes memory mappings.
     void unmap(addr_t virt, size_t size) {
-        kprint("* UNMAP {08x}        {6S}\n", virt, size);
+
+        // klog("* UNMAP {08x}        {6S}\n", virt, size);
 
         for (size_t i = 0; i < size/page_size; ++i)
             unmap_one(virt + i*page_size);
@@ -221,12 +241,12 @@ namespace Memory::Virtual {
     ///
     /// if phy is 0, tries to allocate a physical page.
     static bool map_one(addr_t virt, addr_t phy, u32 flags) {
-        // kprint("  map {08x} -> {08x}\n", virt, phy);
+        // klog("  map {08x} -> {08x}\n", virt, phy);
 
         PageTab *tab_ = get_tab(virt, true);
 
         if (!tab_) return false;
-        // kprint("  map {08x} -> {08x} have tab: {}\n", virt, phy, tab_);
+        // klog("  map {08x} -> {08x} have tab: {}\n", virt, phy, tab_);
 
         // Do we need to allocate?
         if (phy == 0) {
@@ -246,25 +266,28 @@ namespace Memory::Virtual {
     /// Creates memory mappings.
     ///
     /// if phy is 0, tries to allocate physical pages.
-    addr_t map(addr_t virt, addr_t phy, size_t size, u32 flags) {
+    errno_t map(addr_t virt, addr_t phy, size_t size, u32 flags) {
 
+        assert(size % page_size == 0, "attempted map() of non-page-aligned size");
+
+        // klog("* MAP {08x} -> {08x} {6S}\n", virt, phy, size);
         // kprint("* MAP {08x} -> {08x} {6S}\n", virt, phy, size);
 
         for (size_t i = 0; i < size/page_size; ++i) {
-            if (!map_one(virt + i*page_size
-                        ,phy ? phy  + i*page_size : 0
-                        ,flags)) {
-
+            errno_t err = map_one(virt + i*page_size
+                                 ,phy ? phy  + i*page_size : 0
+                                 ,flags);
+            if (err < 0) {
                 // map failed - remove mappings up to this point.
                 unmap(virt, i*page_size);
 
-                return 0;
+                return err;
             }
         }
-        return virt;
+        return ERR_success;
     }
 
-    addr_t map_mmio(addr_t virt, addr_t phy, size_t size, u32 flags) {
+    errno_t map_mmio(addr_t &virt, addr_t phy, size_t size, u32 flags) {
 
         assert(phy, "map_mmio makes no sense without a physical address");
 
@@ -273,30 +296,89 @@ namespace Memory::Virtual {
         if (virt) {
             return map(virt, phy, size, flags);
         } else {
-            static size_t mmio_mapped = 0; //Layout::kernel_mmio().start;
+            virt = 0;
+            static size_t mmio_mapped = 0;
             if (size <= Layout::kernel_mmio().size - mmio_mapped) {
                 virt = Layout::kernel_mmio().start + mmio_mapped;
 
-                if (map(virt, phy, size, flags))
+                errno_t err = map(virt, phy, size, flags);
+                if (err >= 0)
                     mmio_mapped += size;
-                return virt;
+                return err;
             } else {
-                kprint("warning: no mmio space left for map_mmio()\n");
-                return 0;
+                kprint("vmm: warning: no mmio space left for map_mmio()\n");
+                return ERR_nomem;
             }
         }
     }
 
-    bool is_mapped(addr_t virt) {
-        PageTab *tab = get_tab(virt);
+    bool is_mapped(addr_t virt, size_t size) {
 
-        return tab && ((*tab)[addr_pagei(virt)] & flag_present);
+        size_t page_offset = virt & 0xfff;
+        virt &= ~0xfff;
+
+        size += page_offset;
+        size_t npages = div_ceil(size, page_size);
+
+        for (size_t pn : range(npages)) {
+
+            addr_t a = virt + pn*page_size;
+
+            // The page table must exist and the page must be marked present.
+            PageTab *tab = get_tab(a);
+            if (!tab) return false;
+            if (!((*tab)[addr_pagei(a)] & flag_present)) return false;
+        }
+
+        return true;
+    }
+
+    PageDir *make_address_space() {
+        PageDir *pd_     = new_pdir(); if (!pd_) return nullptr;
+        PageDir *pt_rec_ = new_ptab(); if (!pt_rec_) { delete pd_; return nullptr; }
+
+        PageDir &pd     = *pd_;
+        PageTab &pt_rec = *pt_rec_;
+
+        addr_t pdir_pa = virtual_to_physical(&pd);
+        addr_t ptab_pa = virtual_to_physical(&pt_rec);
+
+        // Clone recursive pagetable.
+        pt_rec = *recursive_tab_;
+
+        // Populate the new page directory.
+        for (size_t i : range(1024)) {
+            // (  0- 255 / 0x00000000-0x3fffffff = kernel mem
+            // ,256-1023 / 0x40000000-0xffffffff = user mem)
+            if (i >= 256) {
+                // Zero user memory entries.
+                pd[i]     = 0;
+                pt_rec[i] = 0;
+            } else {
+                // Copy kernel memory pagetable numbers.
+                pd[i] = current_dir()[i];
+                // the kernel pagetables themselves need not be cloned, they
+                // are the same for all tasks - except for the recursive
+                // mapping pagetable, which we clone below.
+            }
+        }
+
+        // - Insert new recursive pagetable into new pdir.
+        // - Map the pagetable recursively.
+        pd    [addr_tab(Layout::page_tables().start)] = make_pde(ptab_pa, flag_present | flag_writable);
+        pt_rec[addr_tab(Layout::page_tables().start)] = make_pte(ptab_pa, flag_present | flag_writable);
+
+        return &pd;
+    }
+
+    void delete_address_space(PageDir *page_dir) {
+        (void)page_dir;
+
+        // TODO.
+        UNIMPLEMENTED
     }
 
     void init() {
-
-        // kprint("ktabs at {}\n", kernel_tabs.data());
-
         // Iterate over the 256 page tables that will describe the first 1 GiB
         // of memory (kernel memory).
         for (auto [i, ktab] : enumerate(kernel_tabs)) {
@@ -331,13 +413,13 @@ namespace Memory::Virtual {
             }
         }
 
-        kprint("virtual memory layout:\n");
-        kprint("  kernel:   {S}\n", Layout::kernel());
-        kprint("    image:  {S}\n", Layout::kernel_image());
-        kprint("    heap:   {S}\n", Layout::kernel_heap());
-        kprint("    mmio:   {S}\n", Layout::kernel_mmio());
-        kprint("    ptabs:  {S}\n", Layout::page_tables());
-        kprint("  user:     {S}\n", Layout::user());
+        klog("virtual memory layout:\n");
+        klog("  kernel:   {S}\n", Layout::kernel());
+        klog("    image:  {S}\n", Layout::kernel_image());
+        klog("    heap:   {S}\n", Layout::kernel_heap());
+        klog("    mmio:   {S}\n", Layout::kernel_mmio());
+        klog("    ptabs:  {S}\n", Layout::page_tables());
+        klog("  user:     {S}\n", Layout::user());
 
         set_pagedir(kernel_dir);
 

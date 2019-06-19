@@ -23,6 +23,9 @@ namespace Process {
      * The idle thread puts the CPU in a low-power state until the next interrupt occurs.
      */
     void idle() {
+        // Enable interrupts while this thread is running.
+        asm volatile ("sti");
+
         while (true) {
             // Do nothing, wait for the next interrupt.
             asm volatile ("hlt");

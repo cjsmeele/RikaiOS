@@ -36,7 +36,7 @@ namespace ostd {
         Array<Item,N> items;
 
         /// The amount of (non-null) items we currently have.
-        atomic<size_t> length_ = 0;
+        size_t length_ = 0;
 
         /// Where the next item is written
         /// (only accessed by the writer).
@@ -62,8 +62,6 @@ namespace ostd {
             items[i_writer_].data = item;
             increment(i_writer_);
 
-            // Once length is atomically updated, the data is guaranteed to be
-            // available to other threads / cores.
             ++length_;
         }
 

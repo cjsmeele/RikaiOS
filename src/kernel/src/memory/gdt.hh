@@ -32,6 +32,8 @@ namespace Memory::Gdt {
         i_tss,
     };
 
+    void set_tss_stack(addr_t esp);
+
     /// Initialises the Global Descriptor Table and loads it.
     void init();
 }

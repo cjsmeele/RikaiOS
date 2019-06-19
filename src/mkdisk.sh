@@ -22,11 +22,16 @@ else
         "$1"                                              \
         unit MiB                                          \
         mklabel msdos                                     \
-        mkpart  primary ext2 1  $(($BOOTPART_SIZE+1))     \
-        mkpart  primary ext2 $(($BOOTPART_SIZE+1)) '100%'
+        mkpart  primary ext2 1 $(($BOOTPART_SIZE+1))      \
+        mkpart  primary fat32  $(($BOOTPART_SIZE+1)) '100%'
 
     # Hackily overwrite the partition id (fs type) of the first partition.
     # This is to prevent anyone from trying to mount it (it's not a filesystem).
     # (parted does not allow us to set such an fs type).
     printf '\x7f' | dd status=none bs=1 of="$1" seek=$((0x1c2)) conv=notrunc
+
+    # Format FAT partition (tell mformat where the partition starts and its size).
+    mformat -i "$1"@@$(($BOOTPART_SIZE+1))M -T $((($2-$BOOTPART_SIZE-1)*1024*2)) -v EOSOS -F
+    mcopy   -i "$1"@@$(($BOOTPART_SIZE+1))M -s disk/*     ::/
+    mcopy   -i "$1"@@$(($BOOTPART_SIZE+1))M -s user/bin/* ::/
 fi

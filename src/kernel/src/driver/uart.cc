@@ -16,6 +16,9 @@
 #include "../interrupt/handlers.hh"
 #include "../console/serial.hh"
 #include "../debug-keys.hh"
+#include "filesystem/vfs.hh"
+#include "ipc/queue.hh"
+#include "process/proc.hh"
 
 #include "../kshell.hh"
 
@@ -25,22 +28,82 @@ namespace Driver::Uart {
 
     using namespace Interrupt;
 
-    // Queue<char, 16> queue;
+    KQueue<char, 32> uart_input;
 
     static void irq_handler(const interrupt_frame_t &) {
         char ch = Io::in_8(0x3f8);
 
-        if (Kshell::enabled()) {
-            if (!Kshell::input.try_enqueue(ch)) {
+        if (Kshell::want_all_input()) {
+            if (!Kshell::input.try_enqueue(ch))
                 dprint("kshell input queue full, char dropped\n");
-            }
-        } else if (ch == 0x1b) {
+        } else if (!Kshell::enabled() && ch == 0x1b) {
             // ESC pressed.
             Kshell::enable();
         } else {
-            handle_debug_key(ch);
+            // handle_debug_key(ch);
+            uart_input.try_enqueue(ch);
         }
     }
+
+    struct uart_dev_t : public DevFs::device_t {
+
+        ssize_t read (u64, void *buffer_, size_t nbytes) override {
+
+            char  *buffer  = (char*)buffer_;
+            size_t written = 0;
+
+            while (written < nbytes) {
+                char c = uart_input.dequeue();
+                // Translate carriage return to newline.
+                if (c == '\r')   c = '\n';
+                if (c == '\x7f') c = '\b';
+
+                if (written == 0 && c == ascii_ctrl('D')) {
+                    // ^D, or EOT, indicates end-of-file.
+                    // (if encountered in the middle of a line, the character is passed on as-is)
+                    return 0;
+                }
+
+                // FIXME: For lack of a TTY driver, we currently echo UART input here.
+                kprint("{}", c);
+
+                buffer[written++] = c;
+                if (c == '\n')
+                    // Automatic line buffering: Return early on newline.
+                    return written;
+            }
+
+            return written;
+        }
+
+        ssize_t write(u64, const void *buffer_, size_t nbytes) override {
+            u8 *buffer = (u8*)buffer_;
+            size_t written = 0;
+
+            while (written < nbytes) {
+
+                // Try to print at most 256 bytes before yielding to another thread.
+                // (ideally, we would use a separate thread and a queue for output)
+                if (written && written == 256)
+                    Process::yield();
+
+                bool ready = false;
+                for (size_t i : range(1000)) {
+                    // Read "Transmit Holding Register Empty" register.
+                    if (Io::in_8(0x3f8 + 5) & 0x20) {
+                        ready = true;
+                        break;
+                    }
+                }
+                if (!ready) return ERR_timeout;
+
+                Io::out_8(0x3f8, buffer[written++]);
+            }
+            return written;
+        }
+        s64 size() override { return 0; }
+    };
+    static uart_dev_t uart_dev;
 
     void init() {
 
@@ -50,6 +113,9 @@ namespace Driver::Uart {
         if (Console::Serial::exists()) {
             Handler::register_irq_handler(4, irq_handler);
             dprint("uart0: initialised\n");
+
+            DevFs *devfs = Vfs::get_devfs();
+            if (devfs) devfs->register_device("uart0", uart_dev, 0600);
         }
     }
 }

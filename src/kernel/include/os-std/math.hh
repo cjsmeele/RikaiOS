@@ -189,4 +189,21 @@ namespace ostd {
         return count_trailing_0s(static_cast<N>(~x));
     }
     ///@}
+
+    /**
+     * \name Overflow-safe arithmetic operators.
+     *
+     * These functions return false on overflow.
+     *
+     * The first two parameters are inputs, the third parameter stores the result.
+     *
+     * @{
+     */
+    template<typename T1, typename T2, typename T3>
+    constexpr bool safe_add(T1 x, T2 y, T3 &z) { return !__builtin_add_overflow(x, y, &z); }
+    template<typename T1, typename T2, typename T3>
+    constexpr bool safe_sub(T1 x, T2 y, T3 &z) { return !__builtin_sub_overflow(x, y, &z); }
+    template<typename T1, typename T2, typename T3>
+    constexpr bool safe_mul(T1 x, T2 y, T3 &z) { return !__builtin_mul_overflow(x, y, &z); }
+    ///@}
 }

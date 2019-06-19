@@ -72,6 +72,11 @@ namespace Memory::Gdt {
     /// A 48-bit datastructure that indicates the location and size of the table.
     static const u64 gdt_ptr = (u64)table.data() << 16 | (sizeof(table) - 1);
 
+    void set_tss_stack(addr_t kernel_stack) {
+        tss.ss0  = i_kernel_data*8;
+        tss.esp0 = kernel_stack;
+    }
+
     void init() {
         tss.iomap_offset = 0x68; // Indicates we do not have an iomap.
 

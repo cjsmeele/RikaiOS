@@ -35,6 +35,8 @@
  *     ├─────────────────────┤ 0x3fc0'0000  - @ 1020 MiB
  *     │ Page tables (4M)    │
  *     ├─────────────────────┤ 0x4000'0000  - @ 1 GiB
+ *     │ User program args   │
+ *     ├─────────────────────┤ 0x4010'0000  - @ 1025 MiB
  *     │ User code + data    │
  *     │ User heap           │
  *     │ User stack          │
@@ -53,9 +55,10 @@ namespace Memory::Layout {
     region_t kernel();       ///< Returns the kernel region.
     region_t   user();       ///< Returns the user region.
 
-    region_t kernel_stack(); ///< The per-task kernel stack.
-    region_t page_tables();  ///< The per-task page tables.
+    region_t kernel_stack(); ///< The per-thread kernel stack.
+    region_t page_tables();  ///< The per-thread page tables.
     region_t kernel_image(); ///< The kernel binary (text+data, including bss).
     region_t kernel_heap();  ///< The global kernel heap.
     region_t kernel_mmio();  ///< Memory mapped I/O.
+    region_t   user_args();  ///< The process arguments.
 }

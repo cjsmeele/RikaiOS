@@ -15,6 +15,7 @@
 #include "kernel-heap.hh"
 #include "manager-virtual.hh"
 #include "layout.hh"
+#include "interrupt/interrupt.hh"
 
 // See kernel-heap.hh for an overview of how this works.
 
@@ -280,6 +281,7 @@ namespace Memory::Heap {
     }
 
     void dump_stats() {
+
         kprint("\nkernel heap:\n");
         kprint("  start @{}\n", (void*)heap_start);
         kprint("  end   @{}\n", (void*)heap_end);
@@ -297,6 +299,7 @@ namespace Memory::Heap {
     }
 
     void dump_all() {
+
         kprint("\nkernel heap allocations:\n");
         for (node_t *node = first_node; node; node = node->next) {
             if (node->used) {
@@ -428,6 +431,8 @@ namespace Memory::Heap {
                 // Finally merge any free blocks we may have created.
                 if (dst->prev) dst->prev = maybe_merge_with_adjacents(dst->prev);
                 if (dst->next) dst->next = maybe_merge_with_adjacents(dst->next);
+                // dump_stats();
+                // dump_all();
 
                 // The aligned address where the actual data will live.
                 void *data = (u8*)dst + sizeof(node_t);

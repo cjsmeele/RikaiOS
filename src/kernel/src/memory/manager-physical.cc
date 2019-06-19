@@ -90,7 +90,7 @@ namespace Memory::Physical {
 
             first_free_page = page_no+1;
         } else {
-            kprint("!! failed to allocate physical memory\n");
+            kprint("pmm: !! failed to allocate physical memory\n");
         }
 
         return page_no;
@@ -144,7 +144,7 @@ namespace Memory::Physical {
         size_t page_start = region.start / page_size;
         size_t page_count = region.size  / page_size;
 
-        kprint("  {} - {}  {6S} free\n"
+        klog("  {} - {}  {6S} free\n"
               ,(u8*)region.start
               ,(u8*)region.start + (region.size-1)
               ,region.size);
@@ -161,7 +161,7 @@ namespace Memory::Physical {
 
     void init(const boot_info_t &boot_info) {
 
-        kprint("physical memory map:\n");
+        klog("physical memory map:\n");
 
         // Start out assuming all memory is reserved.
         total_pages_reserved_ = intmax<size_t>::value;
@@ -184,6 +184,6 @@ namespace Memory::Physical {
         total_pages_reserved_ += 1_MiB / page_size;
         total_pages_used_     += kernel_pages;
 
-        dump_stats();
+        // dump_stats();
     }
 }

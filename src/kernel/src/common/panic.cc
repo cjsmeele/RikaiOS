@@ -17,6 +17,7 @@
 #include <os-std/string.hh>
 #include "kprint.hh"
 #include "asm.hh"
+#include "process/proc.hh"
 
 using namespace ostd;
 
@@ -26,7 +27,11 @@ void panic(StringView reason) {
     kprint("\n*** kernel panic ***\n");
     if (reason.length()) {
         kprint(reason);
+
+        Process::thread_t *t = Process::current_thread();
+
         kprint("\n*** kernel panic ***\n");
+        if (t) kprint("\nthe running thread was: {}\n", *t);
     }
 
     // Make the screen a nice familiar white-on-blue :-)

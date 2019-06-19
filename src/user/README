@@ -1,0 +1,48 @@
+USER
+====
+
+This directory contains all userland software.
+
+Running `make` in this directory will build all programs and will copy
+resulting binaries to the bin/ directory.
+
+The Makefile in the parent directory (/src) copies all files in bin/ to disk
+when the `disk` target is run.
+
+Where is...?
+------------
+
+- Each userland program gets its own directory in here.
+- There is a system library named *libsys*, available to all programs, in libsys/.
+  This lib contains wrappers for all system calls.
+- In addition to libsys, programs can make use of headers from
+  ../kernel/include/os-std/ for common datatypes, math functions, string formatting, etc.
+
+Adding a new program
+--------------------
+
+It is easiest to start by copying a simple existing program.
+
+1. Copy the directory `echo` to the name of your program.
+2. In that directory, edit the Makefile: Change the NAME variable to your program name.
+
+NB: The NAME variable must match the name of the directory.
+
+Your program binary should now automatically be included in the disk image when
+`make disk` is executed in the parent directory.
+
+Porting existing programs and libraries
+---------------------------------------
+
+This is not an easy task. There are a few things to consider:
+
+- There is currently no OS-specific toolchain. You cannot currently build a
+  cross-compiler for this OS such that system libraries, link flags etc. are
+  automatically set correctly.
+  Instead, the software must adapt to the build system in this directory.
+
+- This OS does not (yet) provide a complete C or C++ standard library implementation.
+  This is the foundation that nearly all PC software depend on.
+
+- libsys provides a POSIX-like interface for file I/O, but many other
+  typical *NIX functions are absent.

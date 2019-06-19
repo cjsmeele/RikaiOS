@@ -195,7 +195,7 @@ namespace ostd {
     template<typename T>
     struct intmax {
         constexpr static u64 value = is_signed<T>::value
-            ? ~T(1 << (sizeof(T)*8-1)) : static_cast<T>(-1);
+            ? ~T(1ULL << (sizeof(T)*8-1)) : static_cast<T>(-1);
     };
 
     template<bool b, typename T1, typename T2> struct if_                { using type = T1; };

@@ -1,0 +1,5 @@
+*.elf
+*.map
+*.o
+/libsys/lib
+/libsys/o

@@ -19,60 +19,82 @@
 #include "driver/driver.hh"
 #include "process/proc.hh"
 #include "ipc/semaphore.hh"
+#include "filesystem/filesystem.hh"
 #include "kshell.hh"
+#include "filesystem/vfs.hh"
+#include "process/elf.hh"
 
 /**
  * \file
- * Contains the kernel's main function.
+ * Contains the kernel's main function (the C++ entrypoint).
  */
 
-// Testing threads and mutexes {{{
+/**
+ * A thread that tries to load an "init" program.
+ *
+ * If no init program is found on the first mounted disk, the built-in kernel
+ * shell is started instead.
+ *
+ * This thread immediately exits afterwards.
+ */
+static void run_init() {
 
-mutex_t mutex;
+    // Find the "init" executable on the first mounted disk.
 
-static void test_a() {
-    size_t size = 50;
+    path_t init_path = "/";
 
-    for (u64 i = 0;; ++i) {
-        Io::wait(100); // some microseconds to get interrupted (so we don't stall the machine).
-        if (i % size == 0) {
-            mutex.lock();
-        } else if (i % size == size - 1) {
-            kprint("(A done)\n");
-            mutex.unlock();
-            Process::yield(); // give B some time to capture the mutex.
+    // First, find the disk mount.
+    int fd = Vfs::open("/", o_dir);
+    assert(fd > 0, "could not open vfs root");
+    while (true) {
+        dir_entry_t entry;
+        int n = Vfs::read_dir(fd, entry);
+        if (n > 0) {
+            // Take any directory under / starting with "disk" as a mounted disk.
+
+            if (entry.name.starts_with("disk")) {
+                init_path += entry.name;
+                break;
+            }
+        } else if (n == 0) {
+            // End of directory.
+            break;
         } else {
-            kprint("A");
-            Process::yield(); // control should be returned to us immediately.
+            kprint("couldn't read root directory: {}\n", error_name(n));
         }
     }
+    Vfs::close(fd);
+
+    // init_path should now be /diskXpY
+    if (init_path.starts_with("/disk")) {
+
+        path_t rootfs = init_path;
+
+        init_path += "/init.elf";
+
+        Process::proc_t *proc;
+        Process::proc_arg_spec_t args { "init" };
+
+        // Create a process. It is automatically scheduled to run.
+        errno_t err = Elf::load_elf(init_path, args, proc);
+
+        if (err < 0) {
+            kprint("could not find/load <{}>, good luck!\n", init_path);
+            kprint("(error was: {})\n", error_name(err));
+
+            Kshell::enable();
+            return;
+        }
+
+        proc->working_directory = rootfs;
+
+        // All done.
+        return;
+    }
+
+    kprint("could not find init.elf, good luck!\n");
+    Kshell::enable();
 }
-
-static void test_b(int x) {
-
-    kprint("B! {}\n", x);
-    Io::wait(40_M);
-
-    return; // see if we can cleanly exit this thread.
-
-    // size_t size = 20;
-    //
-    // for (u64 i = 0;; ++i) {
-    //     Io::wait(100); // some microseconds to get interrupted (so we don't stall the machine).
-    //     if (i % size == 0) {
-    //         mutex.lock();
-    //     } else if (i % size == size - 1) {
-    //         kprint("(B done)\n");
-    //         mutex.unlock();
-    //         Process::yield(); // give A some time to capture the mutex.
-    //     } else {
-    //         kprint("B");
-    //         // Process::yield();
-    //     }
-    // }
-}
-
-// }}}
 
 /// This is the C++ kernel entrypoint (run right after start.asm).
 extern "C" void kmain(const boot_info_t &boot_info);
@@ -81,26 +103,25 @@ extern "C" void kmain(const boot_info_t &boot_info) {
     // Make sure we can write to the console.
     kprint_init();
 
-    kprint("\neos-os is booting.\n\n");
-
-    // Io::wait(12_M);
+    kprint("\n welcome to EOS-OS, version {}.\n\n", KERNEL_VERSION);
 
     // Initialise subsystems.
-    Interrupt::init();          // Configure the interrupt controller.
-    Memory   ::init(boot_info); // Set up segments, enable paging.
-    Process  ::init();          // Initialise the scheduler.
-    Driver   ::init();          // Detect and initialise hardware.
+    Interrupt ::init();          // Configure the interrupt controller.
+    Memory    ::init(boot_info); // Set up segments, enable paging.
+    Process   ::init();          // Initialise the scheduler.
+    FileSystem::init();          // Initialise the virtual filesystem.
+    Driver    ::init();          // Detect and initialise hardware.
 
+    // Create kernel threads.
+
+    Process::make_kernel_thread(run_init,       "run_init");
     Process::make_kernel_thread(Kshell::kshell, "kshell");
 
-    kprint("\npress ESC in the serial terminal to enable the kernel shell\n\n");
-
-    // Process::make_kernel_thread(test_a, "test-a");
-    Process::make_kernel_thread(test_b, "test-b", 5);
-
-    // (this is where we would load an 'init' process from disk and run it)
-
+    // Dispatch the first thread, enable the scheduler.
+    // (this function does not return)
     Process::run();
 
-    panic("reached end of kmain");
+    // This UNREACHABLE text (see common.hh) is just for clarity.
+    // As a bonus, if it somehow *were* to be reached, it would trigger a panic.
+    UNREACHABLE
 }

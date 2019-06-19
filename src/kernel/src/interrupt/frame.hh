@@ -86,6 +86,12 @@ namespace Interrupt {
                                               - sizeof(cpu_interrupt_frame_t::user_esp)
                                               - sizeof(cpu_interrupt_frame_t::user_ss);
     static constexpr size_t frame_size_user   = sizeof(interrupt_frame_t);
+
+    /// Checks whether a frame belongs to code running in kernel-mode.
+    constexpr inline bool is_frame_in_kernel_mode(const interrupt_frame_t &f) {
+        // Check whether the code segment of the thread is in ring 0.
+        return (f.sys.cs & 0x3) == 0;
+    }
 }
 
 namespace ostd::Format {

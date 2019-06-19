@@ -32,4 +32,6 @@ namespace Memory::Layout {
 
     region_t kernel_mmio()   { return {0x30000000
                                       ,0x3fc00000 - 0x30000000}; }
+
+    region_t user_args()     { return {0x40000000, 1_MiB}; }
 }

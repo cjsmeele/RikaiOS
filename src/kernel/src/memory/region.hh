@@ -27,7 +27,7 @@ namespace Memory {
     /// A memory region is valid if it has non-zero size and start+(size-1)
     /// does not overflow.
     constexpr bool region_valid(region_t r) {
-        return r.size > 0 && r.start + (r.size-1) > r.start;
+        return r.size > 0 && r.start + (r.size-1) >= r.start;
     }
 
     /// Checks that two memory regions do *not* overlap.
@@ -36,6 +36,13 @@ namespace Memory {
             && region_valid(y)
             && ((x.start < y.start && x.start + (x.size-1) < y.start)
              || (y.start < x.start && y.start + (y.size-1) < x.start));
+    }
+
+    constexpr bool region_contains(region_t x, region_t y) {
+        return region_valid(x)
+            && region_valid(y)
+            && x.start <= y.start
+            && x.start + (x.size-1) >= y.start + (y.size-1);
     }
 
     constexpr bool addr_in_region(addr_t addr, region_t r) {

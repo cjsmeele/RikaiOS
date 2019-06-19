@@ -18,17 +18,20 @@
 
 namespace Driver::Disk::Ata {
 
+    /// We only support disks with this block size.
+    static constexpr size_t block_size = 512;
+
     /**
      * Read block_count amount of sectors starting at sector lba into buffer.
      *
-     * This will block the current thread.
+     * This may block the current thread.
      */
     errno_t read (u8 disk_no, u64 lba, u8 *buffer, size_t block_count);
 
     /**
      * Write block_count amount of sectors starting at sector lba from buffer.
      *
-     * This will block the current thread.
+     * This may block the current thread.
      */
     errno_t write(u8 disk_no, u64 lba, const u8 *buffer, size_t block_count);
 

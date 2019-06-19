@@ -17,14 +17,12 @@
 #include "common.hh"
 #include "../memory/manager-virtual.hh"
 #include "../interrupt/frame.hh"
-
-/// Max length of a process name.
-static constexpr size_t max_proc_name   = 32;
+#include "ipc/semaphore.hh"
 
 /// Max amount of semaphores a thread can wait on simultaneously.
 //static constexpr size_t max_thread_sems = 32;
 
-static constexpr size_t per_thread_kernel_stack_size = 8_KiB;
+static constexpr size_t per_thread_kernel_stack_size = 32_KiB;
 
 /*
  * Interactions of interrupt handling with scheduling:
@@ -43,12 +41,12 @@ static constexpr size_t per_thread_kernel_stack_size = 8_KiB;
  * kernel thread         -> exc PF  -> [alloc kheap]         -> kernel thread
  */
 
+struct file_handle_t;
+
 namespace Process {
 
     /// How many timer ticks a process is allowed to run before it is pre-empted.
     static constexpr size_t ticks_per_slice = 4;
-
-    static constexpr size_t max_proc_files = 32;
 
     struct proc_t;
     struct thread_t {
@@ -59,11 +57,6 @@ namespace Process {
         String<max_proc_name> name;         ///< The name of the thread (may be empty).
 
         u64 ticks_running        = 0;       ///< How many clock ticks this thread has been running.
-
-        bool started             = false;   ///< Whether the thread was dispatched at least once.
-        bool suspended_in_kernel = false;   ///< Whether the thread was suspended within kernel-mode.
-        bool blocked             = false;   ///< Whether the thread is waiting on something.
-        bool is_kernel_thread    = false;   ///< Whether this thread only runs in kernel-mode.
 
         thread_t *prev_in_proc   = nullptr; ///< Points to another thread within the same proc.
         thread_t *next_in_proc   = nullptr; ///< Points to another thread within the same proc.
@@ -92,6 +85,11 @@ namespace Process {
          * them.
          */
         Array<u32, per_thread_kernel_stack_size/sizeof(u32)> kernel_stack;
+
+        bool started             = false;   ///< Whether the thread was dispatched at least once.
+        bool suspended_in_kernel = false;   ///< Whether the thread was suspended within kernel-mode.
+        bool blocked             = false;   ///< Whether the thread is waiting on something.
+        bool is_kernel_thread    = false;   ///< Whether this thread only runs in kernel-mode.
     };
 
     struct proc_t {
@@ -108,10 +106,14 @@ namespace Process {
 
         String<max_proc_name> name;       ///< The name of this process (cannot be empty).
 
-        /// Open files.
-        // Array<fd_t, max_proc_files> files;
-    };
+        /// Open file handles.
+        Array<file_handle_t*, max_proc_files> files;
 
+        String<max_path_length> working_directory = "/";
+
+        int         exit_code = -1;
+        semaphore_t exit_sem;
+    };
 
     thread_t *current_thread(); ///< Gets the currently running thread.
     proc_t   *current_proc();   ///< Gets the currently running process.
@@ -131,6 +133,7 @@ namespace Process {
     void yield_noreturn(bool block = false);
 
     /// Yields current thread, resumes the calling kernel function on reschedule.
+    /// (if !block, may return immediately if no other threads are ready)
     void yield(bool block = false);
 
     /// Block current thread, preventing reschedule until someone unblock()s it.
@@ -145,15 +148,34 @@ namespace Process {
     void dump_all();
 
     /**
+     * Dispatches the given thread.
+     *
+     * This should usually not be called manually: Use yield() instead.
+     */
+    [[noreturn]] void dispatch(thread_t &thread);
+
+    /**
      * Create a kernel thread.
      *
      * Thread functions can either be of type void() or void(int).
      * In the latter case, you may pass an extra integer argument that will be
      * the first argument of the thread. Use this to provide context
      * information to the thread.
+     *
+     * @{
      */
     thread_t *make_kernel_thread(function_ptr<void(int)> entrypoint, StringView name, int arg = 0);
     thread_t *make_kernel_thread(function_ptr<void(   )> entrypoint, StringView name);
+    ///@}
+
+    using proc_arg_spec_t = Array<StringView, max_args>;
+
+    /**
+     * Create a user-mode process.
+     */
+    proc_t *make_proc(Memory::Virtual::PageDir *pd
+                     ,function_ptr<void()> main_entrypoint
+                     ,StringView name);
 
     bool scheduler_enabled();
 

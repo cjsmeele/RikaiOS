@@ -15,15 +15,21 @@
 #include "page-fault.hh"
 #include "../memory/manager-virtual.hh"
 #include "../memory/layout.hh"
+#include "process/proc.hh"
 
 namespace Interrupt {
 
     using namespace Memory;
 
     bool handle_pagefault(interrupt_frame_t &frame) {
+
+        // The address causing the fault is in CR2.
         addr_t address = asm_cr2();
 
-        // kprint("oof<{}>", (void*)address);
+        // if (Process::current_thread())
+        //     kprint("[{}] paging in {08x}\n", *Process::current_thread(), address);
+
+        // Note: This code must not trigger additional faults.
 
         // If the access was:
         // - within the kernel heap
@@ -38,7 +44,7 @@ namespace Interrupt {
 
             // ... then we lazily allocate that heap page.
 
-            if (Virtual::map(aligned, 0, page_size, Virtual::flag_writable)) {
+            if (Virtual::map(aligned, 0, page_size, Virtual::flag_writable) >= 0) {
 
                 mem_set((u32*)aligned, 0xdeaddead, page_size/4);
                 // (deaddead is a sentinel value that may indicate accesses to

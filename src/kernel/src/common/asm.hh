@@ -39,8 +39,7 @@
 ///@}
 
 /// Hang the CPU.
-inline void asm_hang() { asm_cli();
-                         asm_hlt(); }
+inline void asm_hang() { while(true) {asm_cli(); asm_hlt(); } }
 
 /// Execute an invalid instruction, triggering an exception.
 inline void crash() { asm volatile("ud2"); }

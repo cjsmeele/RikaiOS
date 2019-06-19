@@ -14,9 +14,11 @@
  */
 #include "proc.hh"
 #include "idle.hh"
-#include "../interrupt/interrupt.hh"
-#include "../interrupt/frame.hh"
-#include "../memory/manager-virtual.hh"
+#include "interrupt/interrupt.hh"
+#include "interrupt/frame.hh"
+#include "memory/manager-virtual.hh"
+#include "memory/gdt.hh"
+#include "filesystem/vfs.hh"
 
 // Assembly functions that assist in saving and restoring register & stack
 // state for threads waiting in kernel-mode.
@@ -45,12 +47,15 @@ namespace Process {
     thread_t *idle_thread = nullptr;
 
     /// Process (PID 0) for all kernel threads.
-    proc_t    kernel_proc;
+    proc_t kernel_proc;
 
     /// The front of the ready queue (may be null when there is nothing to do but idle).
     thread_t *ready_first = nullptr;
     /// The back  of the ready queue (may be null when there is nothing to do but idle).
     thread_t *ready_last  = nullptr;
+
+    proc_t *proc_first = nullptr;
+    proc_t *proc_last  = nullptr;
 
     /// When userspace is paused (only kthreads can run), userspace threads are
     /// split off the ready queue into this queue.
@@ -58,13 +63,20 @@ namespace Process {
 
     bool userspace_paused = false;
 
-    atomic<size_t> thread_count  = 0;
-    atomic<size_t> process_count = 0;
+    size_t thread_count  = 0;
+    size_t process_count = 1; // (the kernel is PID 0)
+
+    static Interrupt::interrupt_frame_t &current_frame(thread_t &t) {
+        return t.frame;
+    }
+    static const Interrupt::interrupt_frame_t &current_frame(const thread_t &t) {
+        return t.frame;
+    }
 
     /// Checks whether the thread's saved state indicates that it runs in kernel mode.
     static bool is_thread_in_kernel_mode(const thread_t &t) {
         // Check whether the code segment of the thread is in ring 0.
-        return (t.frame.sys.cs & 0x3) == 0;
+        return (current_frame(t).sys.cs & 0x3) == 0;
     }
 
     /// (inefficiently) find a process by its PID.
@@ -127,8 +139,6 @@ namespace Process {
     /// Add a thread to the ready queue.
     static void enqueue(thread_t &t) {
 
-        enter_critical_section();
-
         if (userspace_paused && !t.is_kernel_thread) {
             // userspace is paused, add this thread to the paused queue instead.
             if (paused_userspace_queue) {
@@ -150,13 +160,10 @@ namespace Process {
         }
 
         t.blocked = false;
-        leave_critical_section();
     }
 
     /// Add a thread to the front of the ready queue.
     static void enqueue_front(thread_t &t) {
-
-        enter_critical_section();
 
         if (!t.is_kernel_thread && userspace_paused) {
             if (paused_userspace_queue) {
@@ -172,28 +179,30 @@ namespace Process {
             t.next_ready = ready_first;
 
             if (ready_first) ready_first->prev_ready = &t;
-            if (!ready_last) ready_last = &t;
+            if (!ready_last) ready_last              = &t;
 
             ready_first  = &t;
         }
 
         t.blocked = false;
-        leave_critical_section();
     }
 
     /// Start running / resume a thread.
     [[noreturn]]
-    static void dispatch(thread_t &thread) {
+    void dispatch(thread_t &thread) {
 
-        // We definitely do not want to be interrupted during dispatch.
-        enter_critical_section();
+        // kprint("dispatch to thread {} (current: {})\n", thread, current_thread_ ? *current_thread_ : "NONE");
 
-        // kprint("dispatch to thread {} (current: {})\n", thread, current_thread_ ? current_thread_->name : "NONE");
-        // kprint("dispatch to thread {} @{} with frame@{}: {}\n"
-        //        , thread
-        //        ,&thread
-        //        ,&thread.frame
-        //        ,thread.frame);
+        // if (thread.name != "idle" && thread.proc->name != "/disk0p1/init.elf") {
+        //     if (current_thread_) kprint("dispatch  {} -> {}\n", *current_thread_, thread);
+        //     else                 kprint("dispatch  <NONE> -> {}\n", thread);
+
+        //     kprint("dispatch to thread {} @{} with frame@{}: {}\n"
+        //            , thread
+        //            ,&thread
+        //            ,&thread.frame
+        //            ,thread.frame);
+        // }
 
         if (&Memory::Virtual::current_dir() != thread.page_dir) {
             // This thread lives in a different address space than the current
@@ -239,41 +248,51 @@ namespace Process {
             UNREACHABLE
 
         } else {
-            // NO: Hard mode: The thread must be resumed using an interrupt frame.
+            // NO: Hard mode: The thread must be resumed (or started) using an
+            // interrupt frame.
+
+            if (!is_thread_in_kernel_mode(thread)) {
+                // We are resuming or starting a user-mode thread.
+
+                // Make sure the thread can enter kernel-mode again by setting
+                // the thread's kernel stack in the TSS struct.
+                // On the next interrupt, the CPU will automatically switch to
+                // this stack.
+                Memory::Gdt::set_tss_stack((addr_t)(thread.kernel_stack.data()
+                                                   +thread.kernel_stack.size()));
+
+                // This is not needed for kernel-threads: The CPU will not
+                // switch stacks when priviliged code is interrupted.
+            }
         }
 
         // We will now decide where on the thread's kernel-mode stack we place
         // the interrupt frame, and then enter it using an IRET (return from
         // interrupt).
 
-        if (thread.started) {
+        Interrupt::interrupt_frame_t &frame = current_frame(thread);
 
-            // The thread was interrupted through a software or hardware interrupt.
-
-            // Strategy: We re-use the stack space that was eaten by the ISR that
-            // ran on the thread previously. We copy the frame into this space
-            // and return to that state.
-            //
-            // frame.regs.esp is the stack pointer that was saved half-way into the ISR:
-            // after the CPU has pushed the EIP, CS, EFLAGS, error_code and
-            // possibly user-ESP, user-SS; and after the ISR has pushed an int_no.
-            // (right before the PUSHA instruction)
-            //
-            // First, we pop off this partial frame:
-
-            thread.frame.regs.esp += 5*4;
-
-            // For user-mode threads, pop off user-esp and user-ss as well.
-            if (!is_thread_in_kernel_mode(thread))
-                thread.frame.regs.esp += Interrupt::frame_size_user
-                                       - Interrupt::frame_size_kernel;
-
+        if (thread.is_kernel_thread) {
+            if (thread.started) {
+                // Strategy: We re-use the stack space that was eaten by the ISR that
+                // ran on the thread previously. We copy the frame into this space
+                // and return to that state.
+                //
+                // frame.regs.esp is the stack pointer that was saved half-way into the ISR:
+                // after the CPU has pushed the EIP, CS, EFLAGS, and
+                // error_code; and after the ISR has pushed an int_no.
+                // (right before the PUSHA instruction)
+                //
+                // We pop off this partial frame.
+                frame.regs.esp += 5*4;
+            }
         } else {
-            // This is the first dispatch for this thread!
-            // There's no partial interrupt frame to pop off, so we simply push
-            // our frame at the top of the stack.
-            thread.started = true;
+            // For user-mode threads, simply put the frame at the top of the stack.
+            // The thread's kernel stack is guaranteed to be unused at this point.
+            frame.regs.esp = (addr_t)(thread.kernel_stack.data() + thread.kernel_stack.size());
         }
+
+        thread.started = true;
 
         // Now we copy the frame onto the thread's stack and IRET into it.
 
@@ -300,17 +319,15 @@ namespace Process {
                     \n /* Skip over int_no and error_code */                       \
                     \n add $8, %%esp                                               \
                     \n iret"
-                   ::"d" (thread.frame.regs.esp)
-                    ,"b" (&thread.frame)
-                    ,"c" (frame_size / 4)
-                    ,"a" (frame_size));
+                   ::"d" (frame.regs.esp)
+                    ,"b" (&frame)
+                    ,"c" ((u32)frame_size / 4)
+                    ,"a" ((u32)frame_size));
 
         UNREACHABLE
     }
 
     void unblock(thread_t &t) {
-
-        enter_critical_section();
 
         if (t.blocked) {
             // This thread probably has something important to do, so push it
@@ -318,13 +335,11 @@ namespace Process {
             enqueue_front(t);
         }
 
-        leave_critical_section();
+        // kprint("UNBLOCK {} == {}\n", t, t.frame);
     }
 
     [[noreturn]]
     static void dispatch_next_thread() {
-
-        enter_critical_section();
 
         if (!scheduler_enabled_)
             // Disregard the ready queue, run the idle thread.
@@ -347,37 +362,26 @@ namespace Process {
 
     void pause_userspace() {
 
-        enter_critical_section();
-
-        if (userspace_paused) {
-            leave_critical_section();
-            return;
-        }
+        if (userspace_paused) return;
 
         userspace_paused       = true;
         paused_userspace_queue = nullptr;
 
         thread_t *last_paused  = nullptr;
 
-        if (!current_thread_) {
-            leave_critical_section();
-            return;
-        }
+        if (!current_thread_) return;
 
         for (thread_t *t = ready_first
             ;t
             ;t = t->next_ready) {
 
             if (!t->is_kernel_thread)
+                // TODO: Move user thread to the paused userspace queue.
                 UNIMPLEMENTED
         }
-
-        leave_critical_section();
     }
 
     void resume_userspace() {
-
-        enter_critical_section();
 
         if (userspace_paused) {
 
@@ -389,12 +393,11 @@ namespace Process {
                 paused_userspace_queue = nullptr;
             }
         }
-
-        leave_critical_section();
     }
 
     void save_frame(const Interrupt::interrupt_frame_t &frame) {
-        if (current_thread_) current_thread_->frame = frame;
+        if (current_thread_)
+            current_thread_->frame = frame;
     }
 
     [[noreturn]]
@@ -402,8 +405,6 @@ namespace Process {
 
         // When this thread is resumed, make it return directly to the
         // interrupted code instead of returning to yield's caller.
-
-        enter_critical_section();
 
         if (block) current_thread_->blocked = true;
 
@@ -414,19 +415,31 @@ namespace Process {
 
     void yield(bool block) {
 
-        enter_critical_section();
+        if (!current_thread_) {
+            // Scheduler not yet enabled.
+
+            assert(!block, "cannot block current thread - scheduler not yet enabled");
+            return;
+        }
 
         if (block) current_thread_->blocked = true;
 
-        // Enter suspend.
-        suspend_in_kernel();
-
-        // We've been resumed
-
-        leave_critical_section();
+        if (block || ready_first) {
+            // Enter suspend.
+            suspend_in_kernel();
+            // We've been resumed
+        } else {
+            // There's nothing else to do and the current thread is not
+            // blocking, so we might as well continue our work immediately.
+        }
     }
 
-    static tid_t genereate_thread_id() {
+    /**
+     * Generate a TID number for a new thread.
+     *
+     * Thread ID numbers are unique across processes.
+     */
+    static tid_t generate_thread_id() {
         // XXX: This is silly, but it works as long as we have fewer than 2^31
         //      threads over the running time of the OS.
         //      We definitely need to fix this if we want the OS to be able to
@@ -434,12 +447,18 @@ namespace Process {
         return thread_count++;
     }
 
-    static pid_t genereate_process_id() {
+    /// Generate a PID number for a new process.
+    static pid_t generate_process_id() {
         // XXX: See above.
         return process_count++;
     }
 
-    /// Entrypoint for all newly created threads.
+    /**
+     * Entrypoint for all newly created kernel threads.
+     *
+     * We use this little launchpad to pass arguments to a thread's main
+     * function. It also ensures delete_thread is called when the called function returns.
+     */
     [[gnu::naked]]
     static void threadpoline() {
         asm volatile ("/* Save thread pointer */                              \
@@ -448,7 +467,6 @@ namespace Process {
                     \n push %%ebx                                             \
                     \n call *%%eax                                            \
                     \n add $4, %%esp                                          \
-                    \n xchg %%bx, %%bx                                        \
                     \n /* Call delete_thread with the saved thread pointer */ \
                     \n call (%0)"
                     :: "m" (delete_thread));
@@ -461,24 +479,24 @@ namespace Process {
 
     thread_t *make_kernel_thread(function_ptr<void(int)> entrypoint, StringView name, int arg) {
 
-        enter_critical_section();
-
-        kprint("proc: spawning kernel thread '{}'\n", name);
+        klog("proc: spawning kernel thread '{}'\n", name);
 
         thread_t *t         = new thread_t;
         assert(t, "could not allocate kernel thread");
 
-        t->id               = genereate_thread_id();
+        t->id               = generate_thread_id();
         t->name             = name;
         t->proc             = &kernel_proc;
         t->is_kernel_thread = true;
 
+        memset(&t->frame, 0, sizeof(t->frame));
+
         t->stack_bottom     = t->kernel_stack.data();
         t->frame.regs.esp   = (addr_t)(t->kernel_stack.data() + t->kernel_stack.size());
 
-        // Enable interrupts for the new kernel thread.
+        // Make sure interrupts are disabled for the new kernel thread.
         // (without touching reserved flags)
-        t->frame.sys.eflags = (asm_eflags() & 0xffc0'802a) | 1 << 9;
+        t->frame.sys.eflags = (asm_eflags() & 0xffc0'802a) & ~(1 << 9);
 
         // Set segment registers.
         t->frame.sys. cs    = asm_cs();
@@ -509,25 +527,42 @@ namespace Process {
 
         enqueue(*t);
 
-        leave_critical_section();
-
         return t;
+    }
+
+    static void delete_proc(proc_t *proc) {
+        assert(proc->id > 0, "the kernel cannot be killed (well, actually you did)");
+
+        // TODO: Actually free process resources (files, address space, ...).
+        signal_all(proc->exit_sem);
+
+        // Close all opened files.
+        for (auto [fd, h] : enumerate(proc->files)) {
+            if (h) {
+                assert(mutex_try_lock(h->lock), "file handle not lockable during delete_proc");
+                mutex_unlock(h->lock);
+                Vfs::close(fd);
+            }
+        }
     }
 
     void delete_thread(thread_t *t) {
 
-        enter_critical_section();
-
         if (t == idle_thread)
             panic("someone tried to kill the idle thread - please don't, i need that!");
 
-        if (!t->next_in_proc && !t->prev_in_proc) {
+        if (t->proc->id == 1)
+            panic("someone tried to kill init!");
 
-            // Delete an entire process.
-            UNIMPLEMENTED
+        if (t->proc->first_thread == t && t->proc->last_thread == t) {
+            // We are going to delete the entire process.
+            // Make sure that we will be able to close files before continuing.
+            Vfs::wait_until_lockable();
         }
 
         // Update linked lists.
+        if (t->proc->first_thread == t) t->proc->first_thread = t->next_in_proc;
+        if (t->proc->last_thread  == t) t->proc->last_thread  = t->prev_in_proc;
         if (t->next_ready)   t->next_ready  ->prev_ready   = t->prev_ready;
         if (t->prev_ready)   t->prev_ready  ->next_ready   = t->next_ready;
         if (t->next_in_proc) t->next_in_proc->prev_in_proc = t->prev_in_proc;
@@ -545,10 +580,69 @@ namespace Process {
 
         } else {
             // Simply de-allocate and move on.
+
+            if (!t->proc->first_thread)
+                // Delete an entire process.
+                delete_proc(t->proc);
+
             delete t; // *poof*
         }
+    }
 
-        leave_critical_section();
+    proc_t *make_proc(Memory::Virtual::PageDir *pd
+                     ,function_ptr<void()> main_entrypoint
+                     ,StringView name) {
+
+        proc_t *p = new proc_t;
+        if (!p) return nullptr;
+
+        p->id   = generate_process_id();
+        p->name = name;
+
+        thread_t *t = new thread_t;
+        if (!t) { delete p; return nullptr; }
+
+        p->first_thread = t;
+        p->last_thread  = t;
+
+        t->id                 = generate_thread_id();
+        t->name               = "main";
+        t->proc               = p;
+        t->is_kernel_thread   = false;
+        t->page_dir           = pd;
+
+        t->stack_bottom       = t->kernel_stack.data();
+
+        memset(&t->frame, 0, sizeof(t->frame));
+
+        t->frame.regs.esp     = (addr_t)(t->kernel_stack.data() + t->kernel_stack.size());
+
+        t->frame.sys.eflags   = (asm_eflags() & 0xffc0'802a) | 1 << 9;
+        t->frame.sys. cs      = Memory::Gdt::i_user_code  *8 + 3;
+        t->frame.sys.user_ss  = Memory::Gdt::i_user_data  *8 + 3;
+        t->frame.sys.user_esp = 0;
+
+        t->frame.regs.ss      = Memory::Gdt::i_kernel_data*8;
+        t->frame.regs.ds      = Memory::Gdt::i_user_data  *8 + 3;
+        t->frame.regs.es      = Memory::Gdt::i_user_data  *8 + 3;
+        t->frame.regs.fs      = Memory::Gdt::i_user_data  *8 + 3;
+        t->frame.regs.gs      = Memory::Gdt::i_user_data  *8 + 3;
+
+        t->frame.sys.eip      = (addr_t)main_entrypoint;
+
+        assert(proc_first && proc_last, "kernel proc missing");
+        proc_last->next = p;
+        p->prev         = proc_last;
+        proc_last       = p;
+
+        t->started    = false;
+        t->next_ready = nullptr;
+
+        p->working_directory = current_thread_->proc->working_directory;
+
+        enqueue(*t);
+
+        return p;
     }
 
     void resume() {
@@ -557,8 +651,6 @@ namespace Process {
 
     [[noreturn]]
     void pause() {
-
-        enter_critical_section();
 
         scheduler_enabled_ = false;
 
@@ -577,13 +669,9 @@ namespace Process {
             kprint("  {4} {4} {} {8} {}{}{}\n"
                   ,t->proc->id
                   ,t->id
-                  ,t == current_thread_
-                    ? 'R'
-                    : t->blocked
-                    ? 'B'
-                    : t->suspended_in_kernel
-                    ? 's'
-                    : 'S'
+                  ,t == current_thread_      ? 'R'
+                    : t->blocked             ? 'B'
+                    : t->suspended_in_kernel ? 's' : 'S'
                   ,t->ticks_running
                   ,t->proc->name
                   ,t->name.length() ? "." : ""
@@ -593,7 +681,7 @@ namespace Process {
 
     void dump_all() {
         kprint("  {-4} {-4} {1} {8} {}\n", "PID", "TID", "S", "TICKS", "NAME");
-        for (proc_t *p = &kernel_proc
+        for (proc_t *p = proc_first
             ;p
             ;p = p->next) {
 
@@ -604,13 +692,9 @@ namespace Process {
                 kprint("  {4} {4} {1} {8} {}{}{}\n"
                       ,p->id
                       ,t->id
-                      ,t == current_thread_
-                        ? 'R'
-                        : t->blocked
-                        ? 'B'
-                        : t->suspended_in_kernel
-                        ? 's'
-                        : 'S'
+                      ,t == current_thread_      ? 'R'
+                        : t->blocked             ? 'B'
+                        : t->suspended_in_kernel ? 's' : 'S'
                       ,t->ticks_running
                       ,p->name
                       ,t->name.length() ? "." : ""
@@ -628,6 +712,9 @@ namespace Process {
     void init() {
         kernel_proc.id   = 0;
         kernel_proc.name = "kernel";
+
+        proc_first = &kernel_proc;
+        proc_last  = &kernel_proc;
 
         idle_thread = make_kernel_thread(idle, "idle");
     }
@@ -687,17 +774,26 @@ void delete_running_thread() {
     // Switching stacks in the middle of a function is a bit too tricky to do
     // in pure C++, unfortunately.
 
-    static Array<u8, 256> temp_stack;
+    static Array<u32, 4_K> temp_stack;
 
-    asm volatile ("mov %0, %%esp \
+    // Switch stacks and call the second half of this function (below).
+    asm volatile ("cli \
+                \n mov %0, %%esp \
                 \n call delete_running_thread_2"
-                :: "r" (temp_stack.data() + temp_stack.size()));
+                :: "r" (temp_stack.data() + temp_stack.size())
+                : "memory");
 
     UNREACHABLE
 }
 
 extern "C" [[noreturn]]
 void delete_running_thread_2() {
+
+    if (!Process::current_thread_->proc->first_thread)
+        // Delete the entire process.
+        delete_proc(Process::current_thread_->proc);
+
+    // Actually delete thread resources.
     delete Process::current_thread_;
     Process::current_thread_ = nullptr;
 

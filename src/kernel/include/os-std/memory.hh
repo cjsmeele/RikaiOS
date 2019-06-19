@@ -15,10 +15,9 @@
 #pragma once
 
 #include <os-std/types.hh>
+#include <os-std/limits.hh>
 
 namespace ostd {
-
-    constexpr inline size_t page_size = 4096; // 4K
 
     template<typename T>
     constexpr T *mem_set(T *s, const T &c, size_t n) {
@@ -89,5 +88,7 @@ namespace ostd {
     }
 }
 
-extern "C" void *memcpy(void *__restrict dst, const void *__restrict src, size_t sz);
-extern "C" void *memset(void *dst, char c, size_t sz);
+// Memory functions required by compiler builtins.
+
+extern "C" void *memcpy(void *__restrict dst, const void *__restrict src, malloc_size_t sz);
+extern "C" void *memset(void *dst, int c, malloc_size_t sz);

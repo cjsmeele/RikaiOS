@@ -33,4 +33,23 @@ namespace Driver {
 
 #define DRIVER_NAME(x) constexpr static StringView driver_name_ = (x)
 
-#define dprint(...) kprint_from(driver_name_, __VA_ARGS__)
+// Macros for formatting log messages from drivers.
+
+#define dlog(...)                              \
+    do { klog("{}: ", driver_name_);            \
+         klog(__VA_ARGS__);                    \
+    } while (0)
+
+#define dwarn(...)                              \
+    do { kprint("{}: warning: ", driver_name_); \
+         kprint(__VA_ARGS__);                   \
+    } while (0)
+
+#define derror(...)                           \
+    do { kprint("{}: error: ", driver_name_); \
+         kprint(__VA_ARGS__);                 \
+    } while (0)
+
+// #define dprint(...) kprint_from(driver_name_, __VA_ARGS__)
+#define dprint(...) dlog(__VA_ARGS__)
+

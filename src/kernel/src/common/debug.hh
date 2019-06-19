@@ -55,10 +55,10 @@
 
 void do_assert(bool test, const char *error);
 
-#define STRINGIFY2(x) #x
-#define STRINGIFY(x) STRINGIFY2(x)
+#define ASSERT_STRINGIFY2(x) #x
+#define ASSERT_STRINGIFY(x) ASSERT_STRINGIFY2(x)
 #define assert(expr, err) \
-    do_assert((expr), __FILE__ ":" STRINGIFY(__LINE__) ": { " #expr " } - " err)
+    do_assert((expr), __FILE__ ":" ASSERT_STRINGIFY(__LINE__) ": { " #expr " } - " err)
 
 ///@}
 

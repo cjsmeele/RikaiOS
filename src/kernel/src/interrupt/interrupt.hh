@@ -14,17 +14,43 @@
  */
 #pragma once
 
-#include "common.hh"
+// #include "common.hh"
+#include <os-std/math.hh>
+#include "common/asm.hh"
 
 namespace Interrupt {
 
-    inline bool is_enabled() { return bit_get(asm_eflags(), 9); }
+    inline bool is_enabled() { return ostd::bit_get(asm_eflags(), 9); }
 
     void disable(); ///< Disables interrupts.
     void enable();  ///< Enables interrupts.
 
     void init();
 }
+
+// The code below can be used to disable interrupts within certain scopes.
+// However, the kernel is currently entirely non-preemtible, so these features
+// are left unused.  If one were to create a driver that ran a kernel thread
+// with interrupts enabled, they would need to use the following structures to
+// disable interrupts around all calls to other kernel code.
+
+/// Use RAII to pop state at the end of a scope.
+struct critical_scope {
+    bool ints_were_enabled;
+
+    critical_scope(const critical_scope& ) = delete;
+    critical_scope(      critical_scope&&) = delete;
+
+    critical_scope() : ints_were_enabled (Interrupt::is_enabled()) {
+        if (ints_were_enabled) Interrupt::disable();
+    }
+
+    ~critical_scope() {
+        if (ints_were_enabled) Interrupt::enable();
+    }
+};
+
+// Macro style, can be slightly more flexibly scoped:
 
 /// Disable interrupts.
 #define enter_critical_section()                       \

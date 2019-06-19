@@ -27,6 +27,10 @@ namespace Driver::Disk::Ata::Protocol {
     Array<Array<u16,2>,2> iobase {{ { 0x1f0, 0x3f6 }
                                   , { 0x170, 0x376 } }};
 
+    // The max amount of io-waits we will perform while waiting for the status
+    // register to change.
+    static constexpr size_t max_io_wait = 10_K;
+
     /**
      * IO port numbers.
      */
@@ -56,9 +60,9 @@ namespace Driver::Disk::Ata::Protocol {
         Io::wait(10);
     }
 
-    static u8 get_status(u8 bus) { return Io::in_8(port_status(bus)); }
+    u8 get_status(u8 bus) { return Io::in_8(port_status(bus)); }
 
-    static bool wait_until_not_busy(u8 bus, size_t attempts) {
+    static errno_t wait_until_not_busy(u8 bus, size_t attempts) {
 
         for (size_t i = 0; i < attempts; ++i) {
             u8 status = get_status(bus);
@@ -66,34 +70,34 @@ namespace Driver::Disk::Ata::Protocol {
             // kprint("id status for ata{}: {02x}\n", bus, status);
 
             if (status == 0xff || status == 0)
-                return false; // No disk present?
+                return ERR_io; // No disk present?
 
             if (!(status & status_busy))
-                return true;
+                return ERR_success;
         }
-        return false;
+        return ERR_timeout;
     }
 
-    static bool wait_until_drq(u8 bus, size_t attempts) {
+    static errno_t wait_until_drq(u8 bus, size_t attempts) {
         for (size_t i = 0; i < attempts; ++i) {
             u8 status = get_status(bus);
 
-            if (status & status_error) return false;
-            if (status & status_fault) return false;
-            if (status & status_drq)   return true;
+            if (status & status_error) return ERR_io;
+            if (status & status_fault) return ERR_io;
+            if (status & status_drq)   return ERR_success;
         }
-        return false;
+        return ERR_timeout;
     }
 
-    static bool wait_until_ready(u8 bus, size_t attempts) {
+    static errno_t wait_until_ready(u8 bus, size_t attempts) {
         for (size_t i = 0; i < attempts; ++i) {
             u8 status = get_status(bus);
 
-            if (status & status_error) return false;
-            if (status & status_fault) return false;
-            if (status & status_ready) return true;
+            if (status & status_error) return ERR_io;
+            if (status & status_fault) return ERR_io;
+            if (status & status_ready) return ERR_success;
         }
-        return false;
+        return ERR_timeout;
     }
 
     u64 identify(u8 bus
@@ -103,13 +107,13 @@ namespace Driver::Disk::Ata::Protocol {
         select_drive(bus, drive);
 
         // Give the drive some time to get ready.
-        if (!wait_until_not_busy(bus, 1000)) return false;
+        if (wait_until_not_busy(bus, max_io_wait)) return false;
 
         // Send IDENTIFY DEVICE command.
         Io::out_8s(port_command(bus), 0xec);
 
-        if (!wait_until_not_busy(bus, 1000)) return false;
-        if (!wait_until_ready   (bus, 1000)) return false;
+        if (wait_until_not_busy(bus, max_io_wait)) return false;
+        if (wait_until_ready   (bus, max_io_wait)) return false;
 
         // Read 256 words.
         for (u16 &x : result)
@@ -152,19 +156,21 @@ namespace Driver::Disk::Ata::Protocol {
         return max_lba & ~(intmax<u64>::value << 28);
     }
 
-    bool read_blocks(u8  bus
-                    ,u8  drive
-                    ,u64 lba
-                    ,u8 *dest
-                    ,u8  count) {
+    errno_t read_blocks(u8  bus
+                       ,u8  drive
+                       ,u64 lba
+                       ,u8 *dest
+                       ,u8  count) {
+
+        errno_t err = ERR_success;
 
         if (lba >> 28)
-            return false;
+            return ERR_io;
 
         select_drive(bus, drive, lba >> 24);
 
-        if (!wait_until_not_busy(bus, 1000)) return false;
-        if (!wait_until_ready   (bus, 1000)) return false;
+        if ((err = wait_until_not_busy(bus, max_io_wait)) < 0) return err;
+        if ((err = wait_until_ready   (bus, max_io_wait)) < 0) return err;
 
         Io::out_8(port_sector_cnt(bus), count);
         Io::out_8(port_lba0(bus),       lba >>  0);
@@ -174,8 +180,8 @@ namespace Driver::Disk::Ata::Protocol {
 
         // For this command, a sector count of 0 means 256 sectors.
         for (int i : range(count == 0 ? 256 : count)) {
-            if (!wait_until_not_busy(bus, 1000)) return false;
-            if (!wait_until_drq     (bus, 1000)) return false;
+            if ((err = wait_until_not_busy(bus, max_io_wait)) < 0) return err;
+            if ((err = wait_until_drq     (bus, max_io_wait)) < 0) return err;
 
             for (int j : range(256)) {
                 u16 w = Io::in_16(port_data(bus));
@@ -185,7 +191,45 @@ namespace Driver::Disk::Ata::Protocol {
             Io::wait(10);
         }
 
-        return true;
+        return ERR_success;
+    }
+
+    errno_t write_blocks(u8  bus
+                        ,u8  drive
+                        ,u64 lba
+                        ,const u8 *src
+                        ,u8  count) {
+
+        errno_t err = ERR_success;
+
+        if (lba >> 28)
+            return ERR_io;
+
+        select_drive(bus, drive, lba >> 24);
+
+        if ((err = wait_until_not_busy(bus, max_io_wait)) < 0) return err;
+        if ((err = wait_until_ready   (bus, max_io_wait)) < 0) return err;
+
+        Io::out_8(port_sector_cnt(bus), count);
+        Io::out_8(port_lba0(bus),       lba >>  0);
+        Io::out_8(port_lba8(bus),       lba >>  8);
+        Io::out_8(port_lba16(bus),      lba >> 16);
+        Io::out_8(port_command(bus),    0x30);
+
+        // For this command, a sector count of 0 means 256 sectors.
+        for (int i : range(count == 0 ? 256 : count)) {
+            if ((err = wait_until_not_busy(bus, max_io_wait)) < 0) return err;
+            if ((err = wait_until_drq     (bus, max_io_wait)) < 0) return err;
+
+            for (int j : range(256)) {
+                Io::out_16(port_data(bus)
+                          ,(u16)src[i*512 + j*2+0]
+                          |(u16)src[i*512 + j*2+1] << 8);
+            }
+            Io::wait(10);
+        }
+
+        return ERR_success;
     }
 
     void reset_all() {

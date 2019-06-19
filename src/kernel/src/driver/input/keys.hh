@@ -81,12 +81,17 @@ namespace Driver::Input {
      */
     using KeyMap = Array<Key, 256>;
 
+    extern KeyMap keymap_dvorak;
+
     /**
      * Get the ASCII character corresponding to the given key.
      *
      * shifted = whether the shift key is pressed.
      */
-    char key_to_char(Key key, bool shifted);
+    char key_to_char(Key  key
+                    ,bool shift   = false
+                    ,bool control = false
+                    ,bool alt     = false);
 
     /// Get the human-readable name of the given key.
     StringView key_to_name(Key key);

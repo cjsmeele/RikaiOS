@@ -38,9 +38,11 @@ using addr_t    = u32;
 using uli32 = unsigned long int;
 using sli32 =   signed long int;
 
-static_assert(sizeof(uli32)  == sizeof(u32));
-static_assert(sizeof(sli32)  == sizeof(s32));
-static_assert(sizeof(addr_t) == sizeof(void*));
+static_assert(sizeof(uli32)   == sizeof(u32));
+static_assert(sizeof(sli32)   == sizeof(s32));
+static_assert(sizeof(addr_t)  == sizeof(void*));
+static_assert(sizeof(size_t)  >= sizeof(void*));
+static_assert(sizeof(ssize_t) >= sizeof(void*));
 
 ///@}
 /// \name OS integer types.
@@ -52,3 +54,11 @@ using tid_t   = s32; ///< Thread id.
 using fd_t    = s32; ///< File descriptor.
 
 ///@}
+
+// "size" argument type of new/delete calls.
+// GCC expects unsigned long int (uli32), clang needs unsigned int (u32/size_t).
+#ifdef __clang__
+    using malloc_size_t = u32;
+#else
+    using malloc_size_t = uli32;
+#endif

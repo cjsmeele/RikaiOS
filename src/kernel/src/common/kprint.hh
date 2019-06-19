@@ -16,12 +16,18 @@
 
 #include <os-std/types.hh>
 #include <os-std/string.hh>
+#include "interrupt/interrupt.hh"
+
+/// Checks whether log messages should be printed at all.
+/// (if false, klog() will not produce output)
+bool kprint_debug_mode();
 
 /// Print a character to the kernel console.
 void kprint_char(char c);
 
-/// Initialize the kernel console (needs to be done only once).
-void kprint_init();
+/// Print a character to the log.
+/// If debug mode is on, char is printed to console as well.
+void klog_char(char c);
 
 /// Print a string.
 inline void kprint(ostd::StringView str) {
@@ -37,18 +43,19 @@ void kprint(ostd::StringView format
     ostd::fmt(kprint_char, format, args...);
 }
 
-/// Print a string, with some text identifying the component that called print.
-inline void kprint_from(ostd::StringView origin
-                       ,ostd::StringView str) {
-    kprint("{}: {}", origin, str);
+/// Print a log string.
+inline void klog(ostd::StringView str) {
+    for (char c : str)
+        klog_char(c);
 }
 
-/// Print a formatted string, with some text identifying the component that called print.
+/// Print a formatted log string.
 template<typename... Args>
-void kprint_from(ostd::StringView origin
-                ,ostd::StringView format
-                ,const Args&...   args) {
+void klog(ostd::StringView format
+         ,const Args&...   args) {
 
-    kprint("{}: ", origin);
-    ostd::fmt(kprint_char, format, args...);
+    ostd::fmt(klog_char, format, args...);
 }
+
+/// Initialize the kernel console (needs to be done only once).
+void kprint_init();

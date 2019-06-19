@@ -30,7 +30,7 @@ namespace ostd {
      */
     template<typename T, size_t N>
     struct Array {
-        T data_[N];
+        T data_[N] { };
 
         /// Get the amount of elements.
         constexpr size_t size() const { return N; }
@@ -76,6 +76,14 @@ namespace ostd {
         constexpr const T *end()   const { return data_+N; }
         constexpr       T *end()         { return data_+N; }
         ///@}
+
+        constexpr Array &operator=(const Array &o) = default;
+        constexpr Array &operator=(const T (&o)[N]) {
+            for (size_t i : range(N)) {
+                (*this)[i] = o[i];
+            }
+            return *this;
+        }
 
         constexpr Array() = default;
     };
