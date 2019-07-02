@@ -16,15 +16,16 @@
 
 ** Repo structure
 
-| *Directory*           | *Description*                          |
-|-----------------------|----------------------------------------|
-| ~/src/boot~           | Bootloader (bootsector and stage2)     |
-| ~/src/boot/utils~     | Bootloader installer                   |
-| ~/src/kernel~         | Kernel code                            |
-| ~/src/kernel/include~ | Kernel headers exposed to userland     |
-| ~/src/user~           | Userland software                      |
-| ~/src/user/libsys~    | Userland C++ system library            |
-| ~/src/disk~           | (FAT32) Filesystem available to the OS |
+| *Directory*                  | *Description*                                |
+|------------------------------|----------------------------------------------|
+| ~/src/boot~                  | Bootloader (bootsector and stage2)           |
+| ~/src/boot/utils~            | Bootloader installer                         |
+| ~/src/kernel~                | Kernel code                                  |
+| ~/src/kernel/include~        | Kernel headers exposed to userland           |
+| ~/src/kernel/include/os-std~ | OS standard library (math, containers, etc.) |
+| ~/src/user~                  | Userland software                            |
+| ~/src/user/libsys~           | Userland C++ system library                  |
+| ~/src/disk~                  | (FAT32) Filesystem available to the OS       |
 
 | *Makefile*                   | *Description*                                            |
 |------------------------------|----------------------------------------------------------|
@@ -111,3 +112,23 @@ See [[./src/bochsrc]] for configuration options (you may override this file path
 1. Locate your clang's builtins library (e.g. ~locate clang_rt.builtins~)
 2. Create file ~kernel/Makefile.local~, with contents:
    ~LD_BUILTIN_DIR += /the/directory/containing/the/clang/lib~
+
+** Contributing
+
+(TODO)
+
+** Authors
+
+- [[https://cjsmeele.nl][Chris Smeele]]
+
+** License
+
+This project is licensed under the Apache license 2.0.
+Please see [[./LICENSE]] for more information.
+
+*** Third-party software
+
+The operating system was written from scratch, with only the following exception:
+
+- Userland currently ships with a public domain Forth implementation
+  (JONESFORTH). Please see [[./src/disk/forth.txt]] for more information.
