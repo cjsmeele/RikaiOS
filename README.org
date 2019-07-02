@@ -9,6 +9,7 @@
 - lld
 - llvm
 - clang
+- compiler-rt (clang compiler runtime library)
 - parted
 - mtools
 - qemu  (if you are running with QEMU)
