@@ -29,12 +29,13 @@ static constexpr size_t per_thread_kernel_stack_size = 32_KiB;
  *
  * user thread           -> exc     -> [kill thread]         -> other thread
  * user thread           -> syscall -> kernel half           -> user  thread
+ * user thread           -> syscall -> kernel half [yield]   -> other thread
  * user thread           -> syscall -> kernel half [block]   -> other thread
  * user thread           -> syscall -> kernel half [exit]    -> other thread
  * user thread           -> irq     -> kernel half           -> user  thread
  * user thread           -> irq     -> kernel half [preempt] -> other thread
- * kernel thread         -> irq     -> kernel thread         -> other thread
- * kernel thread         -> irq     -> kernel half [preempt] -> other thread
+ * idle thread           -> irq     -> idle thread           -> idle thread
+ * idle thread           -> irq     -> idle thread [preempt] -> other thread
  * kernel thread [block] -> other thread
  * kernel thread [yield] -> other thread
  * kernel thread         -> exc     -> (panic)

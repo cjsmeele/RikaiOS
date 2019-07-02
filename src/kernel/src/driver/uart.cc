@@ -64,8 +64,12 @@ namespace Driver::Uart {
                     return 0;
                 }
 
-                // FIXME: For lack of a TTY driver, we currently echo UART input here.
-                kprint("{}", c);
+                static bool echo_on = true;
+                if (c == ascii_ctrl('T')) echo_on = !echo_on;
+
+                if (echo_on)
+                    // FIXME: For lack of a TTY driver, we currently echo UART input here.
+                    kprint("{}", c);
 
                 buffer[written++] = c;
                 if (c == '\n')

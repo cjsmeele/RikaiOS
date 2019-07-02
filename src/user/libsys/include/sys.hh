@@ -20,6 +20,13 @@
 #include <os-std/limits.hh>
 #include <os-std/errno.hh>
 
+/**
+ * Performs a system call.
+ *
+ * This should not be called directly by user code,
+ * use the dedicated `sys_*` functions below, or the wrapper functions in io.hh
+ * and proc.hh instead.
+ */
 inline int syscall(u32 a = 0,
                    u32 b = 0,
                    u32 c = 0,
@@ -28,7 +35,7 @@ inline int syscall(u32 a = 0,
                    u32 f = 0) {
 
     asm volatile ("int $0xca"
-                 :"+a" (a)
+                 :"+a" (a) // return value is stored in EAX.
                  :"b"  (b)
                  ,"c"  (c)
                  ,"d"  (d)

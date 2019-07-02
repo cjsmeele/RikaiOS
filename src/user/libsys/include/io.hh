@@ -309,7 +309,7 @@ inline ssize_t getchar(fd_t fd = stdin) {
 }
 
 inline errno_t putchar(fd_t fd, char c) { return write  (fd,     c); }
-inline ssize_t putchar(         char c) { return putchar(stdin, c); }
+inline ssize_t putchar(         char c) { return putchar(stdout, c); }
 
 template<typename... Args>
 ssize_t print(fd_t fd, ostd::StringView s, const Args&... args) {

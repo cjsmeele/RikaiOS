@@ -54,6 +54,7 @@ namespace Process {
     /// The back  of the ready queue (may be null when there is nothing to do but idle).
     thread_t *ready_last  = nullptr;
 
+    // A global linked list of all processes.
     proc_t *proc_first = nullptr;
     proc_t *proc_last  = nullptr;
 

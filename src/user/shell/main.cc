@@ -85,6 +85,7 @@ redo:
             }
         }
     }
+    // Account for the last argument.
     if (argv[argc].length_)
         argc++;
 
@@ -116,7 +117,15 @@ static bool handle_builtin(const args_t &args) {
         // Get the canonicalised absolute path (resolves e.g. .. and .)
         get_cwd(cwd);
 
-        return true;
+    } else if (argv[0] == "help") {
+
+        print("this is the eos-os shell\n");
+        print("builtin commands:\n\n");
+        print("  cd <path>            - changes working directory\n");
+        print("  help                 - prints this help text\n");
+        print("  put <file> <text...> - writes text to a file\n");
+        print("  pwd                  - prints working directory\n");
+        print("\n.elf programs in the working directory can be executed as commands\n");
 
     } else if (argv[0] == "pwd") {
         if (argc != 1) {
@@ -124,7 +133,6 @@ static bool handle_builtin(const args_t &args) {
             return true;
         }
         print("{}\n", cwd);
-        return true;
 
     } else if (argv[0] == "put") {
         if (argc < 2) {
@@ -147,7 +155,6 @@ static bool handle_builtin(const args_t &args) {
         }
         write(fd, '\n');
         close(fd);
-        return true;
 
     } else if (argv[0] == "test") {
 
@@ -164,16 +171,19 @@ static bool handle_builtin(const args_t &args) {
             return true;
         }
 
+        // Spawn  a shell which reads input from the keyboard instead of UART,
+        // but still prints to the UART.
         Array<StringView, 1> args_ { "shell" };
-        spawn("shell.elf", args_, true, { kb, spawn_fd_inherit, spawn_fd_inherit });
+        spawn("shell.elf", args_, true
+             , { kb, spawn_fd_inherit, spawn_fd_inherit });
 
         // close(in);
         // close(out);
 
-        return true;
+    } else {
+        return false;
     }
-
-    return false;
+    return true;
 }
 
 int main(int, const char**) {
