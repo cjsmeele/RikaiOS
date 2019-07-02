@@ -1,0 +1,52 @@
+JONESFORTH
+==========
+
+Deze disk bevat een port van JONESFORTH, een public domain Forth implementatie in x86 assembler.
+
+Zie voor de bron:
+
+    https://rwmj.wordpress.com/2010/08/07/jonesforth-git-repository/
+    https://github.com/nornagon/jonesforth (een mirror met een paar fixes)
+
+En voor meer informatie over de taal Forth, bijvoorbeeld:
+
+    https://www.forth.com/starting-forth/
+
+Het bestand forth.elf bevat een ready-to-run binary.
+Dit programma laadt "forth.ft" van disk en accepteert daarna invoer vanuit stdin.
+
+Als test kan je bijvoorbeeld invoeren:
+
+    2 4 10 * + .
+
+    (hiermee zou 42 geprint moeten worden)
+
+Om af te sluiten, typ BYE, of toets op een lege regel ^D (Ctrl-D) in.
+(of typ 1 0 / in, dit zou een divide-by-zero crash moeten veroorzaken)
+
+Om de aanpassingen te zien die gemaakt zijn om forth op dit OS te kunnen
+draaien, vergelijk de sources met (op Linux):
+
+$ diff <(curl -sL https://raw.githubusercontent.com/nornagon/jonesforth/66c56998125f3ac265a3a1df9821fd52cfeee8cc/jonesforth.S) forth.S
+
+forth.elf is gebouwd met de volgende commando's:
+
+    i686-elf-as forth.S -o forth.o
+    i686-elf-ld -T ../user/libsys/link.ld forth.o -o forth.elf
+
+Om deze commando's te kunnen draaien is een een cross-toolchain vereist.
+Zie https://wiki.osdev.org/GCC_Cross-Compiler voor instructies
+NB: Alleen GNU *binutils* zijn vereist, de GCC compiler zelf is hiervoor niet nodig!
+
+BEPERKINGEN
+===========
+
+Er is een vaste heap-grootte van 4 MiB, instelbaar in forth.S. Het is niet
+mogelijk tijdens runtime de heapruimte te vergroten - de BRK en MORECORE
+woorden zijn niet functioneel in deze port.
+
+Forth bestandsoperaties (OPEN-FILE, READ-FILE etc.) zijn niet geport en kunnen
+onverwachte resultaten opleveren wanneer ze uitgevoerd worden.
+
+De rest zou moeten werken, maar is niet uitgebreid getest.
+Als een RPN rekenmachine functioneert deze port in ieder geval prima!
