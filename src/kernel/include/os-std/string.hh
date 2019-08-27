@@ -319,6 +319,15 @@ namespace ostd {
         constexpr bool operator!=(const char *o) const { return !(*this == o); }
         constexpr bool operator!=(StringView o)  const { return !(*this == o); }
 
+        constexpr bool ends_with(StringView o) const {
+            if (o.length() > length_) return false;
+            for (size_t i : range(o.length())) {
+                if ((*this)[length_ - 1 - i] != o[o.length() - 1 - i])
+                    return false;
+            }
+            return true;
+        }
+
         // constexpr operator bool() const { return data_; }
 
         constexpr StringView() // Default constructor: Empty string.

@@ -187,8 +187,6 @@ ssize_t write(fd_t fd, const void *p, size_t nbytes);
 /**
  * Change the current offset into the file where data is written to or read from.
  *
- * \TODO WHENCE doc / type
- *
  * \param[in] fd     the file to write to
  * \param[in] whence the type of seek (0 = absolute, 1 is from end, 2 is from current).
  * \param[in] off    teh amount to seek (may be negative)
@@ -284,7 +282,12 @@ template<size_t N>
 ssize_t getline(fd_t fd, ostd::String<N> &str) {
     str.length_ = 0;
     while (str.length() < str.size()) {
-        ssize_t n = sys_read(fd, str.data() + str.length_, str.size() - str.length_);
+        //ssize_t n = sys_read(fd, str.data() + str.length_, str.size() - str.length_);
+        // Note: /dev/keyboard and uart are line-buffered magically within the kernel,
+        // so for regular files the above does not work (we read too much).
+        // This is an inefficient workaround while we do not yet have a proper TTY driver:
+        // We read 1 byte at a time.
+        ssize_t n = sys_read(fd, str.data() + str.length_, 1);
         if (n <= 0) return n;
         str.length_ += n;
         for (auto [i, c] : enumerate(str)) {

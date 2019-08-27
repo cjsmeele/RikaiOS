@@ -1,4 +1,4 @@
-echo
-echo \ \ autoexec.bat says hi!
-echo
-
+echo \ 
+echo \ \ \ \ welcome to RikaiOS.
+echo \ 
+echo \ 

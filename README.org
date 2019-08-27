@@ -1,4 +1,4 @@
-#+TITLE:  EOS-OS
+#+TITLE:  RikaiOS
 #+AUTHOR: Chris Smeele
 
 (this is a work in progress)
@@ -13,6 +13,7 @@
 - parted
 - mtools
 - qemu  (if you are running with QEMU)
+- qemu-arch-extra
 - bochs (if you are running with Bochs)
 
 ** Repo structure

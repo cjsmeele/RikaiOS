@@ -31,7 +31,7 @@ else
     printf '\x7f' | dd status=none bs=1 of="$1" seek=$((0x1c2)) conv=notrunc
 
     # Format FAT partition (tell mformat where the partition starts and its size).
-    mformat -i "$1"@@$(($BOOTPART_SIZE+1))M -T $((($2-$BOOTPART_SIZE-1)*1024*2)) -v EOSOS -F
-    mcopy   -i "$1"@@$(($BOOTPART_SIZE+1))M -s disk/*     ::/
-    mcopy   -i "$1"@@$(($BOOTPART_SIZE+1))M -s user/bin/* ::/
+    mformat -i "$1"@@$(($BOOTPART_SIZE+1))M -T $((($2-$BOOTPART_SIZE-1)*1024*2)) -v RIKAIOS -F
+    mcopy   -i "$1"@@$(($BOOTPART_SIZE+1))M -s disk/*   ::/
+    mcopy   -i "$1"@@$(($BOOTPART_SIZE+1))M -s user/bin ::/bin
 fi

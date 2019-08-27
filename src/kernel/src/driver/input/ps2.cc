@@ -106,7 +106,7 @@ namespace Driver::Input::Ps2 {
             } else if (!Kshell::enabled() && (key == Key::F1 || key == Key::Esc)) {
                 Kshell::enable();
             } else {
-                handle_debug_key(ch);
+                // handle_debug_key(ch);
                 if (ch)
                     keyboard_input.try_enqueue(ch);
             }

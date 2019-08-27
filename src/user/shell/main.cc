@@ -119,13 +119,29 @@ static bool handle_builtin(const args_t &args) {
 
     } else if (argv[0] == "help") {
 
-        print("this is the eos-os shell\n");
+        print("this is the RikaiOS shell\n");
         print("builtin commands:\n\n");
         print("  cd <path>            - changes working directory\n");
         print("  help                 - prints this help text\n");
         print("  put <file> <text...> - writes text to a file\n");
         print("  pwd                  - prints working directory\n");
         print("\n.elf programs in the working directory can be executed as commands\n");
+
+    } else if (argv[0] == "pause") {
+
+        String<100> s;
+
+        if (argc == 2) {
+            fd_t fd = open(argv[1], "r");
+            if (fd < 0) {
+                print(stderr, "could not open file: {}\n", error_name(fd));
+                return true;
+            }
+            getline(fd, s);
+            close(fd);
+        } else {
+            getline(s);
+        }
 
     } else if (argv[0] == "pwd") {
         if (argc != 1) {
@@ -186,14 +202,79 @@ static bool handle_builtin(const args_t &args) {
     return true;
 }
 
-int main(int, const char**) {
-    // (arguments are ignored)
+static void process_cmdline(cmdline_t &cmdline) {
 
-    print("Hello this is shell\n");
+    cmdline.rtrim();
+    if (cmdline.length()) {
 
+        args_t args = split_args(cmdline);
+        const auto& [argv, argc] = args;
+
+        if (argc && argv[0].length() && argv[0][0] == '#')
+            return;
+
+        if (!handle_builtin(args)) {
+
+            String<max_path_length> bin = argv[0];
+
+            if (!bin.ends_with(".elf")) {
+                // Auto-append '.elf' for convenience.
+                bin += ".elf";
+            }
+
+            errno_t err = spawn(bin, argv, true);
+
+            if (err == ERR_not_exists && !bin.starts_with("/")) {
+                // Not an absolute path? Try a hard-coded binary search directory.
+                // (we don't have a PATH environment variable)
+                auto tmp = bin;
+                bin = "/disk0p1/bin/";
+                bin += tmp;
+                err = spawn(bin, argv, true);
+            }
+
+            if (err < 0)
+                print("cannot run <{}>: {}\n", argv[0], error_name(err));
+        }
+    }
+}
+
+static int process_file(StringView name) {
     cmdline_t cmdline;
+    fd_t rc = open(name, "r");
+    if (rc < 0)
+        return rc;
+
+    while (true) {
+        ssize_t n = getline(rc, cmdline);
+        if (n <  0) return n;
+        if (n == 0) break;  // EOF.
+
+        process_cmdline(cmdline);
+    }
+
+    close(rc);
+    return 0;
+}
+
+int main(int argc, const char **argv) {
+
+    // print("Hello this is shell\n");
+
     get_cwd(cwd);
 
+    if (argc == 2) {
+        int err = process_file(argv[1]);
+        if (err < 0) {
+            print(stderr, "could not run file '{}': {}\n", argv[1], error_name(err));
+            return 1;
+        }
+        return 0;
+    } else {
+        process_file("shell.rc");
+    }
+
+    cmdline_t cmdline;
     while (true) {
         prompt = "";
         fmt(prompt, "{} % ", cwd);
@@ -203,26 +284,7 @@ int main(int, const char**) {
         if (n <  0) return 1;
         if (n == 0) break; // EOF.
 
-        cmdline.rtrim();
-        if (cmdline.length()) {
-
-            args_t args = split_args(cmdline);
-            const auto& [argv, argc] = args;
-
-            if (!handle_builtin(args)) {
-                errno_t err = spawn(argv[0], argv, true);
-
-                if (err == ERR_not_exists) {
-                    // File does not exist? Append ".elf" and try again.
-                    String<max_path_length> path = argv[0];
-                    path += ".elf";
-                    err = spawn(path, argv, true);
-                }
-
-                if (err < 0)
-                    print("cannot run <{}>: {}\n", argv[0], error_name(err));
-            }
-        }
+        process_cmdline(cmdline);
     }
     print("\nshell exit (EOF)\n");
 

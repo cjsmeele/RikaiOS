@@ -61,7 +61,6 @@ namespace Memory::Heap {
     /// Check if a node is valid.
     static bool verify_node(const node_t *node) {
         if (// verify sentinel value
-            // (node && !mem_eq(node->sentinel, "\x55\x55\x55", 3))
             (node && node->sentinel != sentinel_value)
             // verify that contiguous free nodes are merged
           ||(!node->used && ((node->prev && !node->prev->used)

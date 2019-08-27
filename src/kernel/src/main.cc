@@ -70,7 +70,7 @@ static void run_init() {
 
         path_t rootfs = init_path;
 
-        init_path += "/init.elf";
+        init_path += "/bin/init.elf";
 
         Process::proc_t *proc;
         Process::proc_arg_spec_t args { "init" };
@@ -103,7 +103,7 @@ extern "C" void kmain(const boot_info_t &boot_info) {
     // Make sure we can write to the console.
     kprint_init();
 
-    kprint("\n welcome to EOS-OS, version {}.\n\n", KERNEL_VERSION);
+    // kprint("\n welcome to RikaiOS, version {}.\n\n", KERNEL_VERSION);
 
     // Initialise subsystems.
     Interrupt ::init();          // Configure the interrupt controller.

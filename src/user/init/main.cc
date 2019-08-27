@@ -42,13 +42,20 @@ int main(int, const char**) {
         return 1;
     }
 
+    // stderr should appear in the same place as stdout.
     err = duplicate_fd(stderr, stdout);
     if (err < 0) return 1;
 
-    print("init\n");
+    // Note: The current working directory should be the root of the first
+    // mounted partition. We look for a shell in its "/bin" directory.
 
     Array<StringView, 1> args { "shell" };
-    int n = spawn("shell.elf", args, true);
+    err = spawn("bin/shell.elf", args, true);
+
+    if (err < 0) {
+        print(stderr, "init: could not load the shell: {}\n", error_name(err));
+        return 1;
+    }
 
     return 0;
 }

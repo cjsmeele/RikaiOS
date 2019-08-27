@@ -43,11 +43,6 @@
  *     ├─────────────────────┤ 0xffff'f000
  *     └─────────────────────┘ 0xffff'ffff  - @ 4 GiB
  *
- * * One page (4K) below and above the stack are reserved - this is used to
- *   detect stack under- and overflows in early kernel code.
- * * Before the first user-mode task is started, the kernel stack is
- *   still located within kernel data.
- *
  * See layout.cc for the actual values
  */
 namespace Memory::Layout {
