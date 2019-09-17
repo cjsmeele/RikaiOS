@@ -79,6 +79,13 @@ namespace Memory::Virtual {
         else return  kernel_dir;
     }
 
+    address_space_t *kernel_space() {
+        static Memory::Virtual::address_space_t kernel_space;
+        kernel_space.pd     = &kernel_dir;
+        kernel_space.pt_rec = &kernel_recursive_tab;
+        return &kernel_space;
+    }
+
     /**
      * Always returns the current recursive page table.
      *
@@ -120,11 +127,12 @@ namespace Memory::Virtual {
     [[maybe_unused]] static u32    addr_offset(addr_t x) { return  x & 0xfff;        }
     [[maybe_unused]] static u32    page_addr  (u32    x) { return  x << 12;          }
     [[maybe_unused]] static addr_t pte_addr   (pte_t  x) { return  x & ~(0xfff);     }
+    [[maybe_unused]] static addr_t pde_addr   (pde_t  x) { return  x & ~(0xfff);     }
     ///@}
 
     static PageDir *new_pdir() {
         // We cannot simply do `new PageDir`, since the required alignment will
-        // not be respected (its not an attribute on the PageDir type).
+        // not be respected (it's not an attribute on the PageDir type).
         // Instead, we use a manual aligned allocation together with placement new.
         void *p = Heap::alloc(sizeof(PageDir), 4_K);
         if (!p) return nullptr;
@@ -202,6 +210,9 @@ namespace Memory::Virtual {
         current_dir_ = &dir;
     }
 
+    void switch_address_space(address_space_t &space) {
+        switch_address_space(*space.pd);
+    }
     void switch_address_space(PageDir &page_dir) {
         // kprint("switch to pd @{}\n", &page_dir);
         set_pagedir(page_dir);
@@ -333,9 +344,10 @@ namespace Memory::Virtual {
         return true;
     }
 
-    PageDir *make_address_space() {
-        PageDir *pd_     = new_pdir(); if (!pd_) return nullptr;
-        PageDir *pt_rec_ = new_ptab(); if (!pt_rec_) { delete pd_; return nullptr; }
+    address_space_t *make_address_space() {
+        address_space_t *space = new address_space_t; if (!space) return nullptr;
+        PageDir *pd_     = new_pdir(); if (!pd_)     { delete space; return nullptr; }
+        PageDir *pt_rec_ = new_ptab(); if (!pt_rec_) { delete space; delete pd_; return nullptr; }
 
         PageDir &pd     = *pd_;
         PageTab &pt_rec = *pt_rec_;
@@ -368,14 +380,46 @@ namespace Memory::Virtual {
         pd    [addr_tab(Layout::page_tables().start)] = make_pde(ptab_pa, flag_present | flag_writable);
         pt_rec[addr_tab(Layout::page_tables().start)] = make_pte(ptab_pa, flag_present | flag_writable);
 
-        return &pd;
+        space->pd     = &pd;
+        space->pt_rec = &pt_rec;
+        return space;
     }
 
-    void delete_address_space(PageDir *page_dir) {
-        (void)page_dir;
+    void delete_address_space(address_space_t *space) {
 
-        // TODO.
-        UNIMPLEMENTED
+        // Temporarily switch to the given address space so that we can easily
+        // reach all its mappings.
+        //
+        PageDir &old = current_dir();
+        switch_address_space(*space);
+
+        // Find present tables and free all their present, non-borrowed pages.
+        for (auto [pt_i, pde] : enumerate(*space->pd)) {
+            if (pt_i < 256)
+                // Skip kernel mappings - these are never deleted.
+                continue;
+
+            if (pde & flag_present) {
+                // Page table present? Go through its entries.
+                PageTab &table = tables()[pt_i];
+                for (pte_t pte : table) {
+                    if ((pte & flag_present) && !(pte & flag_borrowed)) {
+                        // Page present and owned by this process? De-alloc.
+                        Physical::free_one(addr_page(pte_addr(pte)));
+                    }
+                }
+                // De-allocate the page table.
+                Physical::free_one(addr_page(pde_addr(pde)));
+            }
+        }
+
+        // All that now remains in the address space are the global kernel mappings.
+
+        switch_address_space(old);
+
+        delete space->pd;
+        delete space->pt_rec;
+        delete space;
     }
 
     void init() {

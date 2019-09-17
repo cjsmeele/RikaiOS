@@ -96,6 +96,20 @@ namespace Memory::Virtual {
     using PageTab = Array<pte_t,1024>;
     ///@}
 
+    /**
+     * \brief A process' address space.
+     *
+     * (indirectly) describes all memory mappings for a particular process.
+     * To easily manipulate these mappings, the address space must be switched to.
+     */
+    struct address_space_t {
+        PageDir *pd;     ///< The page directory.
+        PageTab *pt_rec; ///< The table holding recursive mappings.
+    };
+
+    /// Get a pointer to the kernel process' address space.
+    address_space_t *kernel_space();
+
     /// Get the current page directory.
     PageDir &current_dir();
 
@@ -126,12 +140,14 @@ namespace Memory::Virtual {
     addr_t virtual_to_physical(void *virt);
 
     /// Switch to a different address space.
+    void switch_address_space(address_space_t &space);
     void switch_address_space(PageDir &page_dir);
 
     /// Create a new address space.
-    PageDir *make_address_space();
+    address_space_t *make_address_space();
 
-    void delete_address_space(PageDir *page_dir);
+    /// Remove an address space.
+    void delete_address_space(address_space_t *space);
 
     /// Initialises the memory manager.
     void init();

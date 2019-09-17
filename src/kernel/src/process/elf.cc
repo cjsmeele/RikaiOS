@@ -165,13 +165,14 @@ namespace Elf {
         Array<u8, max_chunk_size> chunk;
 
         // Create an address space for the new process.
-        Memory::Virtual::PageDir *pd = Memory::Virtual::make_address_space();
-        if (!pd) return ERR_nomem;
+        Memory::Virtual::address_space_t *space = Memory::Virtual::make_address_space();
+        if (!space) return ERR_nomem;
+        Memory::Virtual::PageDir *pd = space->pd;
 
         // Make sure we cleanup the address space if we return with an error.
         ON_RETURN({ if (err < 0) {
                         Memory::Virtual::switch_address_space(old_dir);
-                        Memory::Virtual::delete_address_space(pd);
+                        Memory::Virtual::delete_address_space(space);
                   }});
 
         // The ELF's program header entries specify what we need to load into memory.
@@ -281,6 +282,8 @@ namespace Elf {
             int   &argc = *(int*)Memory::Layout::user_args().start;
             char **argv = (char**)(&argc + 1);
 
+            argc = 0;
+
             char  *p    = (char*)(argv + max_args);
             for (StringView a : args) {
                 if (!a.length()) break;
@@ -299,7 +302,7 @@ namespace Elf {
 
         // Note: The process name (`path` here) may be longer than the max process name.
         // It is automatically truncated.
-        proc = Process::make_proc(pd
+        proc = Process::make_proc(space
                                  ,(function_ptr<void()>)header.entry
                                  ,path);
 

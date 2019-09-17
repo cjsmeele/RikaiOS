@@ -65,7 +65,6 @@ namespace Process {
         thread_t *next_ready     = nullptr; ///< Points to the next     thread in the ready queue.
 
         Interrupt::interrupt_frame_t frame; ///< Stores thread state when it's interrupted.
-        Memory::Virtual::PageDir *page_dir; ///< Stores the thread's address space.
 
         u32 *stack_bottom        = nullptr; ///< The lower bound of the thread's stack.
 
@@ -106,6 +105,8 @@ namespace Process {
         proc_t *next = nullptr;           ///< Points to a different process.
 
         String<max_proc_name> name;       ///< The name of this process (cannot be empty).
+
+        Memory::Virtual::address_space_t *address_space; ///< The Process' memory mappings.
 
         /// Open file handles.
         Array<file_handle_t*, max_proc_files> files;
@@ -173,8 +174,11 @@ namespace Process {
 
     /**
      * Create a user-mode process.
+     *
+     * Ownership of the provided address space is transferred to the process manager.
+     * (this would be a good place to use a unique_ptr)
      */
-    proc_t *make_proc(Memory::Virtual::PageDir *pd
+    proc_t *make_proc(Memory::Virtual::address_space_t *address_space
                      ,function_ptr<void()> main_entrypoint
                      ,StringView name);
 

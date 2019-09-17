@@ -205,13 +205,13 @@ namespace Process {
         //            ,thread.frame);
         // }
 
-        if (&Memory::Virtual::current_dir() != thread.page_dir) {
+        if (&Memory::Virtual::current_dir() != thread.proc->address_space->pd) {
             // This thread lives in a different address space than the current
             // thread, se we switch to it first.
 
             // Kernel threads are excluded - they are mapped in all address spaces.
             if (!thread.is_kernel_thread)
-                Memory::Virtual::switch_address_space(*thread.page_dir);
+                Memory::Virtual::switch_address_space(*thread.proc->address_space);
         }
 
         thread_t *old_thread = current_thread_;
@@ -534,7 +534,11 @@ namespace Process {
     static void delete_proc(proc_t *proc) {
         assert(proc->id > 0, "the kernel cannot be killed (well, actually you did)");
 
-        // TODO: Actually free process resources (files, address space, ...).
+        // We assume that the caller has already deleted all threads belonging
+        // to this process. (currently - this must have been done through
+        // delete_running_thread)
+
+        // Notify other threads of this process' death.
         signal_all(proc->exit_sem);
 
         // Close all opened files.
@@ -545,6 +549,17 @@ namespace Process {
                 Vfs::close(fd);
             }
         }
+
+        // Free all process-owned memory.
+        Memory::Virtual::delete_address_space(proc->address_space);
+
+        // Update linked lists.
+        if (proc->next) proc->next->prev = proc->prev;
+        if (proc->prev) proc->prev->next = proc->next;
+        if (proc == proc_first) proc_first = proc->next;
+        if (proc == proc_last ) proc_last  = proc->prev;
+
+        delete proc;
     }
 
     void delete_thread(thread_t *t) {
@@ -590,15 +605,16 @@ namespace Process {
         }
     }
 
-    proc_t *make_proc(Memory::Virtual::PageDir *pd
+    proc_t *make_proc(Memory::Virtual::address_space_t *address_space
                      ,function_ptr<void()> main_entrypoint
                      ,StringView name) {
 
         proc_t *p = new proc_t;
         if (!p) return nullptr;
 
-        p->id   = generate_process_id();
-        p->name = name;
+        p->id            = generate_process_id();
+        p->name          = name;
+        p->address_space = address_space;
 
         thread_t *t = new thread_t;
         if (!t) { delete p; return nullptr; }
@@ -610,7 +626,6 @@ namespace Process {
         t->name               = "main";
         t->proc               = p;
         t->is_kernel_thread   = false;
-        t->page_dir           = pd;
 
         t->stack_bottom       = t->kernel_stack.data();
 
@@ -618,8 +633,8 @@ namespace Process {
 
         t->frame.regs.esp     = (addr_t)(t->kernel_stack.data() + t->kernel_stack.size());
 
-        t->frame.sys.eflags   = (asm_eflags() & 0xffc0'802a) | 1 << 9;
-        t->frame.sys. cs      = Memory::Gdt::i_user_code  *8 + 3;
+        t->frame.sys.eflags   = (asm_eflags() & 0xffc0'802a) | 1 << 9; // enable interrupts.
+        t->frame.sys.cs       = Memory::Gdt::i_user_code  *8 + 3; // The '3' indicates Ring 3 - user mode.
         t->frame.sys.user_ss  = Memory::Gdt::i_user_data  *8 + 3;
         t->frame.sys.user_esp = 0;
 
@@ -713,6 +728,7 @@ namespace Process {
     void init() {
         kernel_proc.id   = 0;
         kernel_proc.name = "kernel";
+        kernel_proc.address_space = Memory::Virtual::kernel_space();
 
         proc_first = &kernel_proc;
         proc_last  = &kernel_proc;
