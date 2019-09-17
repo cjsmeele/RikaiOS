@@ -1,0 +1,205 @@
+;; Deck file. Feed this to mkslides to generate slideshow images.
+;; e.g.: ./mkslides.pl -b deck.txt
+;;
+;; This slideshow is my 20 minute Dutch thesis-project presentation.
+;; Please don't mind the weird inline Perl code and other unreadable
+;; hacks - this slideshow tool isn't officially part of the project ;-)
+;;
+;; The selected font (see below) is "unscia", which you probably don't have.
+;; It's based on the awesome public domain unscii font, see: http://pelulamu.net/unscii/
+;; Though you can swap it out with any other monospace font (blocks and lines
+;; may look a little different then).
+;; Other fonts are used throughout the slides and must be installed or replaced
+;; to properly generate this deck.
+;;
+;  $DEF{font} = 'Fantasque Sans Mono'
+;  $DEF{font} = 'Fira Code'
+;$ $DEF{font} = 'unscia'
+;$ die # (forcefully reset slide counter)
+---
+;; The machine spirits are willing.
+;;
+;! -gravity Center
+;$ $V{INDENT} = 0; $V{DRAWPNR} = 0;
+;; Note: NBSP characters are used for alignment here.
+ 
+ 
+ 
+ 
+*RikaiOS*
+═════════
+
+EOS Afstudeerproject
+
+Chris Smeele, 2019
+
+<span color="#1a9fd9" font="PxPlus IBM VGA8 48">
+█ █ <span color="#e62f2b">█ █</span>
+█ ▄ <span color="#e62f2b">█▄█</span>
+▀ ▀    
+</span>
+
+---
+# Inhoud
+
+- Samenvatting project
+- Wat is er gemaakt?
+- Uitdagingen
+- Korte demo
+- Toekomst
+
+---
+# Doel
+
+Een C++ mini-OS dat in EOS toegepast kan worden.
+
+- Simpel, klein
+- Werk vergelijkbaar met
+  Linux waar mogelijk
+
+---
+# What's in a name?
+
+;理 解 : リ カ イ / り か い / ri kai
+Rikai = 理 解 : り か い 
+
+- Betekent: Begrip, begrijpen
+- Past bij doel project
+
+;  → Understanding, comprehension
+Alternatieven:
+
+- EOS-OS:   al bezet!
+- HU-OS:    klinkers breken de tong
+- Chris-OS: ongezond voor ego
+;- (en de naam EOS was al bezet)
+
+---
+# Wat is er gemaakt?
+
+- Buildsysteem
+- Bootloader
+- OS-kernel
+- Gebruikersomgeving met programma's
+
+---
+# Buildsysteem
+
+- GNU make
+- Ondersteunt Clang+GCC
+- Compilet kernel, bootloader, userland
+- Maakt disk images
+- Debugger
+
+      files  comment  code
+make:    16      156   598
+
+---
+# Bootloader
+
+- Laadt kernel
+- Platte binaries
+- Legacy BIOS zaken
+
+          files  comment  code
+C++          12      334   462
+Assembly      2       53    66
+──────────────────────────────
+                           528
+
+---
+# Kernel
+
+- Geheugenbeheer
+- Procesbeheer
+- Drivers (uart, vga, kb/mouse, disk)
+- Filesystem
+
+          files  comment  code
+C++         106     3995  7953
+Assembly      1       26    40
+──────────────────────────────
+                          7993
+
+Minix 3: 12K*  Linux: 25M*
+; minix: excl. process/mem mgmnt, drivers, etc.
+; linux: incl. ALLE DRIVERS
+
+---
+# Userland
+
+- libsys
+- init
+- shell
+- cp, echo, ls, cat, more, forth
+- image viewer, slideshow-programma
+
+          files  comment  code
+C++          16      488   982
+Assembly      1       24    46
+──────────────────────────────
+                          1028
+
+---
+# Uitdagingen
+
+- Debugging / tooling
+- Standard library-ish
+- x86
+- Legacy PC randapparatuur (PS/2)
+- Context switching
+- Virtual filesystem + concurrency
+- Onbekend terrein
+
+---
+;! -gravity Center
+;$ $V{INDENT} = 0;
+
+* *demo* *
+
+---
+# Klaar?
+
+- Is er in 5 maanden tijd een compleet
+  OS gebouwd, bruikbaar voor EOS?
+
+---
+# Klaar?
+
+- Ongeveer?
+
+---
+# Klaar?
+
+- Ongeveer?
+- Werk voor de toekomst
+  - Filesystems: Schrijfbaar FAT, ext2
+  - Porten C stdlib, C++ stdlib
+    - Editors, interpreters, shells...
+  - Multithreading api
+  - TTY driver
+  - Timers
+- Opdrachten voor studenten
+- Overdracht
+
+---
+;! -gravity Center
+;$ $V{INDENT} = 0
+;<span color="white" size="52000">fclose(<span color="cyan">stdout</span>);</span>
+;1: cli   
+;   hlt   
+;   jmp 1b
+; ^D, ^Z, '\\0', FIN|ACK
+;'\\0'
+
+<span color="#ff8000" font="Arial" size="72000">
+It's now safe to turn off
+your computer.
+</span>
+
+---
+# Kernelcomponenten
+
+;! ( -gravity Center kernel.png -negate -alpha on -background none -modulate 120,250 -resize 82% -extent 1920x1080+0-80 +gravity ) -composite
+;  ( -gravity Center kernel.png -alpha on -background none -resize 82% -extent 1920x1080+0-80 +gravity ) -composite
+

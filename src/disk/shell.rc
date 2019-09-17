@@ -1,0 +1,4 @@
+view 800 600 splash.rli
+#pause /dev/keyboard
+#schuif slides
+#view 800 600 splash.rli
