@@ -1,9 +1,87 @@
 #+TITLE:  RikaiOS
 #+AUTHOR: Chris Smeele
 
-(this is a work in progress)
+A tiny 32-bit x86 PC operating system based on a monolithic kernel with some
+Unix-like features, written in a subset of C++.
+
+Please note: This meta-documentation is still a work in progress :-)
+
+** Vision / project goal
+
+A tiny desktop operating system, with Unix-like features, that is written in a
+C++ subset understandable for first-year TI students at Hogeschool Utrecht,
+such that it might be used in an educational context.
+
+Where possible, performance and features are sacrificed to reduce complexity
+and increase readability. This should help the software be more understandable
+for use in an educational context. Nevertheless, important subjects from
+OS-courses at the Hogeschool Utrecht should be implemented.
+
+Though it should boot fine on real hardware, RikaiOS is developed with an
+emulator or virtual machine in mind - the supported hardware is intentionally
+limited for the sake of simplicity.
+
+An obligatory disclaimer: the OS may melt your motherboard and eat your pet
+mouse when run on real hardware, no warranties, yada yada, please read the
+disclaimer in the LICENSE file before running this on your family computer.
+
+** Screenshots
+
+See the [[./aux]] directory. Do not expect anything flashy though - it's
+currently all serial terminal captures!
+
+** Features
+
+The OS with its current feature set was developed in a roughly 6-month period
+from february to july 2019.
+
+- a tiny 2-stage bootloader
+- virtual memory management (paging)
+- kernel threads
+- user-mode processes and threads
+- a pre-emptive round-robin scheduler
+- an elf loader
+- a virtual filesystem with primitive support for mountpoints
+- a devfs with driver-backed virtual device files
+- drivers:
+  - Serial ports
+  - ATA disk controllers
+  - FAT32 filesystem (read-only, currently)
+  - BochsVBE-based graphics adapters (supports QEMU, Bochs and VirtualBox)
+  - PS/2 keyboards and mice, with dvorak keymap support
+- system calls for process creation and file I/O
+- a small kernel-friendly (read: exception&malloc-less) C++ standard library replacement
+- some primitive userland tools (shell, cp, ls, cat, etc.)
+- a userland slideshow presentation tool
+- a special in-kernel shell for testing and querying kernel statistics
+- a flexible Makefile-based build system for all OS software
+
+** Yet-to-become features (WIP)
+
+RikaiOS is not yet a full Linux substitute ;-)
+
+There are some features that need work or are currently being worked on (see
+also the Contributing section):
+
+- syscalls for creating additional userland threads
+- syscalls for mapping additional memory (currently, processes are limited to .data-/.bss declared memory)
+- write support in the FAT32 driver
+- ext2 filesystem support
+- a proper tty driver, line discipline
+- a framebuffer console, possibly in userland
+- other IPC mechanisms
+- DMA for the ATA driver
+- a C standard library port (e.g. newlib or musl), so that other software can be ported
+- a gcc (or clang) cross-compiler targeting OS userland, that can be used outside the current build system
+- a gcc (or clang) port that runs entirely within the OS
+- other smaller items: ~grep -ERn 'TODO|FIXME|XXX' src/kernel/src src/kernel/include src/user/~
+
+Note that the goal of RikaiOS is to remain small: A network stack or USB driver
+for example will probably not be considered for implementation.
 
 ** Dependencies
+
+You need this software installed (on a Linux-ish host) to build and run RikaiOS:
 
 - nasm
 - lld
@@ -15,6 +93,15 @@
 - qemu  (if you are running with QEMU)
 - qemu-arch-extra
 - bochs (if you are running with Bochs)
+- rlwrap (optional - for command-line editing convenience)
+
+Version numbers should be recent, especially for clang, llvm and lld.
+An Arch Linux Dockerfile is provided (thanks to @Peikos) that includes
+compatible versions of the above dependencies.
+
+You may use GCC instead of Clang/llvm if you so desire, provided that you have
+a GCC cross-toolchain for i686-elf. See ~src/kernel/Makefile~ for details on
+how to switch toolchains.
 
 ** Repo structure
 
@@ -48,13 +135,17 @@ on multicore systems.
 *** QEMU
 
 This builds the kernel and bootloader and creates a boot disk that is run with
-QEMU:
+the QEMU virtualizer / emulator. A serial connection to the OS is opened in the
+terminal from which you run the make command.
 
 : make disk && make run
 
-To enable acceleration using kvm, run:
+Currently, the OS shell and TTY driver do not have sophisticated line-editing
+capabilities and command-line history support. For convenience, you can wrap
+QEMU with ~rlwrap~ to make use of line-editing facilities on the host side of
+things (strongly recommended):
 
-: make disk && make qemu-kvm
+: make disk && rlwrap -a make run
 
 *** VirtualBox
 
@@ -77,16 +168,32 @@ Then:
 Now you should be able to start the VM through virtualbox.
 
 Note that serial I/O may be difficult to get to work. The current OS version
-does not interact much with the screen and keyboard by default.
+does not interact much with the screen and keyboard/mice by default.
 
 # in the future we should auto-generate importable vm configurations, or
 # something.
 
-*** Forcing a rebuild
+*** Playing around
 
-This forcibly rebuilds all components, ignoring existing output files.
+Once you have the system up and running, you should see a prompt in the serial
+terminal (if you have connected a monitor, a splash screen may appear as well).
+You can interact with the OS using the serial terminal. To start, try the
+~help~ command.
 
-: make rebuild
+A number of utility programs is provided on disk. View installed programs by
+typing ~ls bin~ (assuming you are still in the ~/disk0p1~ directory). All ELF
+programs in ~/disk0p1/bin~ can be executed as commands without typing the full
+path (think of it as an implicit ~$PATH~ directory). Similarly, any ELF files
+in the working directory, such as ~forth.elf~, can be run just by typing their
+name.
+
+To see how the utilities work, or to add your own, see the README file in the
+~src/user~ directory of this repository.
+
+Pressing ESC on the keyboard (in the video window, not the serial terminal)
+will enable the kernel shell, a built-in debugging utility. This can be used to
+print various statistics and information on running processes and memory (see
+the help ~help~ command when in kshell).
 
 *** Debugging
 
@@ -115,9 +222,21 @@ See [[./src/bochsrc]] for configuration options (you may override this file path
 2. Create file ~kernel/Makefile.local~, with contents:
    ~LD_BUILTIN_DIR += /the/directory/containing/the/clang/lib~
 
+** Questions / bugs
+
+I understand that the publicly available documentation is currently limited,
+so please don't hesitate to open an issue or to send me an e-mail.
+
 ** Contributing
 
-(TODO)
+Please open a
+[[https://github.com/cjsmeele/RikaiOS][Github]] /
+[[https://gitlab.com/cjsmeele/rikai-os][GitLab]]
+issue so we can make sure no effort is duplicated :-)
+
+A process for this should be formalized in the coming weeks - there are some
+open issues/features that can definitely be worked on, with varying degrees of
+difficulty / size. I will document this soon™.
 
 ** Authors
 
@@ -130,7 +249,7 @@ Please see [[./LICENSE]] for more information.
 
 *** Third-party software
 
-The operating system was written from scratch, with only the following exception:
+This operating system was written from scratch, with only the following exception:
 
-- Userland currently ships with a public domain Forth implementation
+- Userland currently ships with a ported public domain Forth implementation
   (JONESFORTH). Please see [[./src/disk/forth.txt]] for more information.
