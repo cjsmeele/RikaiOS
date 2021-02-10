@@ -33,6 +33,7 @@ SECTIONS {
         CTORS_START = .;
 
         *(SORT(.ctor*))
+        *(SORT(.init_array*))
 
         CTORS_END = .;
     }
